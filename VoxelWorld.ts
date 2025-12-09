@@ -401,8 +401,8 @@ export class VoxelWorld {
                     }
                     // py (Top, Y+)
                     if (this.isTransparent(worldX, worldY + 1, worldZ)) {
-                        this.addFace(positions, normals, uvs, indices, vertexCount, [0, 1, 0], 
-                            [worldX, worldY + 1, worldZ + 1], [worldX + 1, worldY + 1, worldZ + 1], [worldX, worldY + 1, worldZ], [worldX, worldY + 1, worldZ], 
+                        this.addFace(positions, normals, uvs, indices, vertexCount, [0, 1, 0],
+                            [worldX, worldY + 1, worldZ + 1], [worldX + 1, worldY + 1, worldZ + 1], [worldX + 1, worldY + 1, worldZ], [worldX, worldY + 1, worldZ],
                             texTop, rotation, true
                         );
                         vertexCount += 4;
@@ -417,8 +417,8 @@ export class VoxelWorld {
                     }
                     // pz (Front, Z+)
                     if (this.isTransparent(worldX, worldY, worldZ + 1)) {
-                        this.addFace(positions, normals, uvs, indices, vertexCount, [0, 0, 1], 
-                            [worldX, worldY, worldZ + 1], [worldX + 1, worldY, worldZ + 1], [worldX, worldY + 1, worldZ + 1], [worldX, worldY + 1, worldZ + 1], 
+                        this.addFace(positions, normals, uvs, indices, vertexCount, [0, 0, 1],
+                            [worldX, worldY, worldZ + 1], [worldX + 1, worldY, worldZ + 1], [worldX + 1, worldY + 1, worldZ + 1], [worldX, worldY + 1, worldZ + 1],
                             physPZ, rotation, false
                         );
                         vertexCount += 4;

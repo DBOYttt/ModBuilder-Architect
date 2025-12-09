@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import JSZip from 'jszip';
-import { X, Upload, Check, Globe, Layers, ArrowRight } from 'lucide-react';
+import { X, Upload, Check, Globe, Layers, ArrowRight, Link } from 'lucide-react';
 import { getNextBlockId, registerCustomBlock, CustomBlockData } from '../blocks';
 import { textureAtlas } from '../TextureAtlas';
 import { Storage } from '../utils/Storage';
@@ -37,7 +37,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
     const [step, setStep] = useState<1 | 2>(1);
     const [configList, setConfigList] = useState<ConfigItem[]>([]);
     const [loading, setLoading] = useState(false);
-    
+    const [githubUrl, setGithubUrl] = useState('');
+    const [githubError, setGithubError] = useState<string | null>(null);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     if (!isOpen) return null;
@@ -322,6 +324,147 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
         if (file) processZip(file);
     };
 
+    // Parse GitHub repo URL to extract owner/repo/path
+    const parseGitHubUrl = (url: string): { owner: string; repo: string; branch: string; path: string } | null => {
+        try {
+            // Support various GitHub URL formats:
+            // https://github.com/owner/repo
+            // https://github.com/owner/repo/tree/branch
+            // https://github.com/owner/repo/tree/branch/path/to/textures
+            const urlObj = new URL(url);
+            if (!urlObj.hostname.includes('github.com')) return null;
+
+            const parts = urlObj.pathname.split('/').filter(Boolean);
+            if (parts.length < 2) return null;
+
+            const owner = parts[0];
+            const repo = parts[1];
+            let branch = 'main';
+            let path = '';
+
+            if (parts[2] === 'tree' && parts.length >= 4) {
+                branch = parts[3];
+                path = parts.slice(4).join('/');
+            }
+
+            return { owner, repo, branch, path };
+        } catch {
+            return null;
+        }
+    };
+
+    // Fetch textures from GitHub repository
+    const handleGitHubImport = async () => {
+        setGithubError(null);
+        const parsed = parseGitHubUrl(githubUrl);
+
+        if (!parsed) {
+            setGithubError('Invalid GitHub URL. Use format: https://github.com/owner/repo or https://github.com/owner/repo/tree/branch/path');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const { owner, repo, branch, path } = parsed;
+
+            // Use GitHub API to get repo contents
+            const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents`;
+            const apiUrl = path ? `${apiBase}/${path}?ref=${branch}` : `${apiBase}?ref=${branch}`;
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('Repository or path not found. Make sure the repo is public.');
+                }
+                if (response.status === 403) {
+                    throw new Error('API rate limited. Please try again later or use ZIP import.');
+                }
+                throw new Error(`GitHub API error: ${response.status}`);
+            }
+
+            const contents = await response.json();
+            const textures: FoundTexture[] = [];
+
+            // Recursively find PNG files
+            const findPngFiles = async (items: any[], currentPath: string = ''): Promise<void> => {
+                for (const item of items) {
+                    if (item.type === 'file' && item.name.endsWith('.png')) {
+                        // Check if it's in a block texture path
+                        const fullPath = currentPath ? `${currentPath}/${item.name}` : item.name;
+                        const parsed = parseTexturePath(fullPath);
+
+                        if (parsed.type === 'block' || parsed.type === 'other') {
+                            try {
+                                // Fetch the image content
+                                const rawUrl = item.download_url;
+                                const imgResponse = await fetch(rawUrl);
+                                const blob = await imgResponse.blob();
+                                const base64 = await new Promise<string>((resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve(reader.result as string);
+                                    reader.readAsDataURL(blob);
+                                });
+
+                                textures.push({
+                                    name: parsed.modId ? `${parsed.modId}:${parsed.name}` : parsed.name,
+                                    path: fullPath,
+                                    data: base64
+                                });
+                            } catch (e) {
+                                console.warn(`Failed to load texture: ${item.name}`, e);
+                            }
+                        }
+                    } else if (item.type === 'dir') {
+                        // Recurse into directory (with rate limiting consideration)
+                        try {
+                            const dirResponse = await fetch(item.url, {
+                                headers: { 'Accept': 'application/vnd.github.v3+json' }
+                            });
+                            if (dirResponse.ok) {
+                                const dirContents = await dirResponse.json();
+                                const newPath = currentPath ? `${currentPath}/${item.name}` : item.name;
+                                await findPngFiles(dirContents, newPath);
+                            }
+                        } catch (e) {
+                            console.warn(`Failed to read directory: ${item.name}`, e);
+                        }
+                    }
+                }
+            };
+
+            // Process contents
+            if (Array.isArray(contents)) {
+                await findPngFiles(contents, path);
+            } else {
+                setGithubError('Expected a directory. Please provide a path to a folder with textures.');
+                setLoading(false);
+                return;
+            }
+
+            if (textures.length === 0) {
+                setGithubError('No PNG textures found in this repository/path. Try pointing to a folder with block textures.');
+                setLoading(false);
+                return;
+            }
+
+            const items = groupTextures(textures);
+            setConfigList(items);
+            setStep(2);
+
+        } catch (err: any) {
+            console.error('GitHub import error:', err);
+            setGithubError(err.message || 'Failed to fetch from GitHub');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleImport = async () => {
         const selectedItems = configList.filter(i => i.selected);
         if (selectedItems.length === 0) return;
@@ -459,26 +602,68 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {step === 1 ? (
-                        <div className="space-y-8">
-                            <div className={`border-2 border-dashed rounded-xl p-12 flex flex-col items-center justify-center text-center transition-colors ${isDay ? "border-gray-300 hover:border-blue-400 bg-gray-50" : "border-slate-700 hover:border-blue-500 bg-slate-800/50"}`}>
-                                <Upload size={48} className="mb-4 opacity-50" />
+                        <div className="space-y-6">
+                            {/* ZIP Upload Section */}
+                            <div className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-colors ${isDay ? "border-gray-300 hover:border-blue-400 bg-gray-50" : "border-slate-700 hover:border-blue-500 bg-slate-800/50"}`}>
+                                <Upload size={40} className="mb-3 opacity-50" />
                                 <h3 className="text-lg font-semibold mb-2">Upload Resource Pack (ZIP)</h3>
-                                <p className="text-sm opacity-70 mb-6 max-w-md">
-                                    We automatically detect and group textures like <code>block_top.png</code>, <code>block_side.png</code> into single blocks.
+                                <p className="text-sm opacity-70 mb-4 max-w-md">
+                                    Upload a .zip or .jar file containing textures.
                                 </p>
-                                <input 
-                                    type="file" 
+                                <input
+                                    type="file"
                                     ref={fileInputRef}
                                     accept=".zip,.jar"
                                     onChange={handleFileUpload}
-                                    className="hidden" 
+                                    className="hidden"
                                 />
-                                <button 
+                                <button
                                     onClick={() => fileInputRef.current?.click()}
                                     className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
                                 >
                                     Select Archive
                                 </button>
+                            </div>
+
+                            {/* Divider */}
+                            <div className="flex items-center gap-4">
+                                <div className={`flex-1 h-px ${isDay ? 'bg-gray-200' : 'bg-slate-700'}`} />
+                                <span className="text-sm opacity-50">OR</span>
+                                <div className={`flex-1 h-px ${isDay ? 'bg-gray-200' : 'bg-slate-700'}`} />
+                            </div>
+
+                            {/* GitHub Import Section */}
+                            <div className={`rounded-xl p-6 ${isDay ? "bg-gray-50 border border-gray-200" : "bg-slate-800/50 border border-slate-700"}`}>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Globe size={20} className="opacity-70" />
+                                    <h3 className="text-lg font-semibold">Import from GitHub</h3>
+                                </div>
+                                <p className="text-sm opacity-70 mb-4">
+                                    Paste a GitHub repository URL with block textures. Works with public repos.
+                                </p>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={githubUrl}
+                                        onChange={(e) => { setGithubUrl(e.target.value); setGithubError(null); }}
+                                        placeholder="https://github.com/owner/repo/tree/main/textures/block"
+                                        className={`flex-1 px-4 py-2 rounded-lg border focus:border-blue-500 outline-none text-sm ${inputClass}`}
+                                    />
+                                    <button
+                                        onClick={handleGitHubImport}
+                                        disabled={loading || !githubUrl.trim()}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        <Link size={16} />
+                                        Fetch
+                                    </button>
+                                </div>
+                                {githubError && (
+                                    <p className="text-red-500 text-sm mt-2">{githubError}</p>
+                                )}
+                                <p className="text-xs opacity-50 mt-3">
+                                    Example: https://github.com/Faithful-Pack/Default-Java/tree/1.21.5/assets/minecraft/textures/block
+                                </p>
                             </div>
                         </div>
                     ) : (
@@ -571,8 +756,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
                 <div className={`p-4 border-t flex justify-end gap-3 ${borderClass}`}>
                     {loading && <span className="flex items-center px-4 text-sm opacity-70">Processing...</span>}
                     {step === 2 && (
-                         <button 
-                            onClick={() => { setStep(1); setConfigList([]); }}
+                         <button
+                            onClick={() => { setStep(1); setConfigList([]); setGithubUrl(''); setGithubError(null); }}
                             className={`px-4 py-2 rounded-lg font-medium ${isDay ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
                         >
                             Back
