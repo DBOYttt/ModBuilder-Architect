@@ -2,6 +2,8 @@
 
 A powerful 3D voxel building tool for creating Minecraft-style block structures. Build, import custom textures, and export your creations.
 
+## [Live Demo](https://dboyttt.github.io/ModBuilder-Architect/)
+
 ![ModBuilder Architect](https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6)
 
 ## Features
