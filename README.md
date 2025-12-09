@@ -1,26 +1,105 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# ModBuilder Architect
 
-# Run and deploy your AI Studio app
+A powerful 3D voxel building tool for creating Minecraft-style block structures. Build, import custom textures, and export your creations.
 
-This contains everything you need to run your app locally.
+![ModBuilder Architect](https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6)
 
-View your app in AI Studio: https://ai.studio/apps/drive/1WE9jWcOoGt82KE48-7dDmWQphoLrGUbk
+## Features
+
+- **3D Voxel Editor** - Place, remove, and manipulate blocks in a 3D environment
+- **Block Library** - Extensive collection of Minecraft-style blocks organized by category
+- **Custom Texture Import** - Import textures from mod zips and resource packs
+- **Entity Support** - Add mob heads and entity models to your builds
+- **Multiple Views** - Isometric, top-down, front, and side views
+- **Layer System** - Work on specific layers with visibility controls
+- **Project Management** - Save, load, and export your creations
+- **Dark/Light Theme** - Comfortable building in any lighting condition
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js (v18+)
 
+1. Clone the repository:
+   ```bash
+   git clone git@github.com:DBOYttt/ModBuilder-Architect.git
+   cd ModBuilder-Architect
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## Fixed Issues
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-1. ~~Custom textures import (especially from mod zips)~~ - Now properly parses mod zip structures (`assets/<modid>/textures/block/`) and handles namespaced textures
-2. ~~Feathering textures~~ - Fixed by disabling image smoothing, adding tile padding, and using proper UV insets
-3. ~~Entities models are still blocks~~ - Entities now render as separate smaller mob head models (0.5 block scale) with proper face textures
+4. Open http://localhost:3000 in your browser
+
+## Build for Production
+
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` directory.
+
+## Importing Custom Textures
+
+ModBuilder Architect supports importing textures from:
+- **Minecraft Resource Packs** (.zip)
+- **Mod Files** (.jar, .zip)
+- Supports standard mod structure: `assets/<modid>/textures/block/`
+
+The importer automatically:
+- Detects and groups related textures (top, side, bottom faces)
+- Handles namespaced textures from mods
+- Preserves texture organization by mod
+
+## Controls
+
+| Action | Control |
+|--------|---------|
+| Place Block | Left Click |
+| Remove Block | Right Click |
+| Rotate View | Hold Move tool + Drag |
+| Pan View | Hold Move tool + Drag |
+| Zoom | Scroll Wheel |
+| Rotate Block | R key (when placing) |
+
+## Tech Stack
+
+- **React 19** - UI Framework
+- **Three.js** - 3D Rendering
+- **React Three Fiber** - React renderer for Three.js
+- **Vite** - Build tool
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+
+## Project Structure
+
+```
+├── App.tsx              # Main application component
+├── VoxelWorld.ts        # Voxel chunk management and rendering
+├── TextureAtlas.ts      # Texture atlas management
+├── EntityRenderer.ts    # Entity/mob head rendering
+├── blocks.ts            # Block definitions
+├── components/
+│   ├── Scene.tsx        # 3D scene setup
+│   ├── BlockInteraction.tsx  # Block placement logic
+│   ├── ImportModal.tsx  # Texture import UI
+│   └── Modals.tsx       # Various modal dialogs
+└── utils/
+    ├── ProjectManager.ts # Save/load functionality
+    ├── Storage.ts       # IndexedDB storage
+    └── HistoryManager.ts # Undo/redo system
+```
+
+## License
+
+MIT License
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
