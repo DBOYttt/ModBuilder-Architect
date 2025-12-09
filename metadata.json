@@ -1,0 +1,5 @@
+{
+  "name": "Voxel Builder 3D",
+  "description": "A web-based 3D voxel building application featuring a robust 3D scene, camera controls, and lighting setup.",
+  "requestFramePermissions": []
+}
