@@ -16,8 +16,10 @@ export class EntityRenderer {
     public group: THREE.Group;
     private meshes: Map<string, THREE.Mesh> = new Map();
 
-    // Entity head size (8 pixels = 0.5 blocks)
-    private readonly headScale = 0.5;
+    // Banner dimensions (width x height in blocks)
+    private readonly bannerWidth = 0.875;  // Slightly less than 1 block wide
+    private readonly bannerHeight = 1.5;   // 1.5 blocks tall
+    private readonly bannerThickness = 0.0625; // Very thin (1 pixel thickness)
 
     constructor() {
         this.group = new THREE.Group();
@@ -52,17 +54,17 @@ export class EntityRenderer {
             if (def.group !== 'Entities') continue;
 
             if (!mesh) {
-                // Create new mesh for this entity
-                mesh = this.createEntityMesh(def);
+                // Create new banner mesh for this entity
+                mesh = this.createBannerMesh(def);
                 mesh.name = key;
                 this.meshes.set(key, mesh);
                 this.group.add(mesh);
             }
 
-            // Update position (center on block, raise to sit on top of block below)
+            // Update position (center on block, banner base sits on ground)
             mesh.position.set(
                 entity.x + 0.5,
-                entity.y + this.headScale / 2, // Sit on the ground
+                entity.y,
                 entity.z + 0.5
             );
 
@@ -81,62 +83,85 @@ export class EntityRenderer {
         }
     }
 
-    private createEntityMesh(def: BlockDef): THREE.Mesh {
-        // Create geometry with proper UVs for this entity
-        const geometry = this.createEntityGeometry(def);
+    private createBannerMesh(def: BlockDef): THREE.Mesh {
+        // Create banner geometry with proper UVs
+        const geometry = this.createBannerGeometry(def);
         const mesh = new THREE.Mesh(geometry, textureAtlas.getMaterial());
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         return mesh;
     }
 
-    private createEntityGeometry(def: BlockDef): THREE.BufferGeometry {
-        const size = this.headScale;
-        const half = size / 2;
+    private createBannerGeometry(def: BlockDef): THREE.BufferGeometry {
+        const w = this.bannerWidth / 2;   // Half width
+        const h = this.bannerHeight;       // Full height
+        const t = this.bannerThickness / 2; // Half thickness
 
         const positions: number[] = [];
         const normals: number[] = [];
         const uvs: number[] = [];
         const indices: number[] = [];
 
-        // Get textures for each face
-        const textures = def.textures;
-        const faceTextures = [
-            textures.front || textures.side,  // Front (+Z)
-            textures.back || textures.side,   // Back (-Z)
-            textures.top,                      // Top (+Y)
-            textures.bottom,                   // Bottom (-Y)
-            textures.right || textures.side,  // Right (+X)
-            textures.left || textures.side,   // Left (-X)
-        ];
+        // Get the front texture for the banner (use front face texture)
+        const frontTex = def.textures.front || def.textures.side;
+        const backTex = def.textures.back || def.textures.side;
+
+        // Banner is a thin box with front and back faces showing the entity texture
+        // Side edges are very thin
 
         const faces = [
-            // Front (positive Z)
-            { verts: [[-half, -half, half], [half, -half, half], [half, half, half], [-half, half, half]], normal: [0, 0, 1] },
-            // Back (negative Z)
-            { verts: [[half, -half, -half], [-half, -half, -half], [-half, half, -half], [half, half, -half]], normal: [0, 0, -1] },
-            // Top (positive Y)
-            { verts: [[-half, half, half], [half, half, half], [half, half, -half], [-half, half, -half]], normal: [0, 1, 0] },
-            // Bottom (negative Y)
-            { verts: [[-half, -half, -half], [half, -half, -half], [half, -half, half], [-half, -half, half]], normal: [0, -1, 0] },
-            // Right (positive X)
-            { verts: [[half, -half, half], [half, -half, -half], [half, half, -half], [half, half, half]], normal: [1, 0, 0] },
-            // Left (negative X)
-            { verts: [[-half, -half, -half], [-half, -half, half], [-half, half, half], [-half, half, -half]], normal: [-1, 0, 0] },
+            // Front face (positive Z) - main display
+            {
+                verts: [[-w, 0, t], [w, 0, t], [w, h, t], [-w, h, t]],
+                normal: [0, 0, 1],
+                tex: frontTex
+            },
+            // Back face (negative Z) - mirrored display
+            {
+                verts: [[w, 0, -t], [-w, 0, -t], [-w, h, -t], [w, h, -t]],
+                normal: [0, 0, -1],
+                tex: backTex,
+                flipU: true // Mirror the texture on back
+            },
+            // Top edge (positive Y)
+            {
+                verts: [[-w, h, t], [w, h, t], [w, h, -t], [-w, h, -t]],
+                normal: [0, 1, 0],
+                tex: def.textures.top,
+                isEdge: true
+            },
+            // Bottom edge (negative Y)
+            {
+                verts: [[-w, 0, -t], [w, 0, -t], [w, 0, t], [-w, 0, t]],
+                normal: [0, -1, 0],
+                tex: def.textures.bottom,
+                isEdge: true
+            },
+            // Right edge (positive X)
+            {
+                verts: [[w, 0, t], [w, 0, -t], [w, h, -t], [w, h, t]],
+                normal: [1, 0, 0],
+                tex: frontTex,
+                isEdge: true
+            },
+            // Left edge (negative X)
+            {
+                verts: [[-w, 0, -t], [-w, 0, t], [-w, h, t], [-w, h, -t]],
+                normal: [-1, 0, 0],
+                tex: frontTex,
+                isEdge: true
+            },
         ];
 
         let vertIndex = 0;
-        for (let i = 0; i < faces.length; i++) {
-            const face = faces[i];
-            const texName = faceTextures[i];
-
+        for (const face of faces) {
             for (const vert of face.verts) {
                 positions.push(...vert);
                 normals.push(...face.normal);
             }
 
             // Get UV coordinates for this texture
-            let uv = textureAtlas.getUV(texName);
+            let uv = textureAtlas.getUV(face.tex);
             if (!uv) uv = textureAtlas.getUV('MISSING');
 
             if (uv) {
@@ -146,12 +171,31 @@ export class EntityRenderer {
                 const vMin = uv.v + eps;
                 const vMax = uv.v + uv.vSize - eps;
 
-                uvs.push(
-                    uMin, vMin,
-                    uMax, vMin,
-                    uMax, vMax,
-                    uMin, vMax
-                );
+                if ((face as any).flipU) {
+                    // Mirror horizontally for back face
+                    uvs.push(
+                        uMax, vMin,
+                        uMin, vMin,
+                        uMin, vMax,
+                        uMax, vMax
+                    );
+                } else if ((face as any).isEdge) {
+                    // For thin edges, use a small strip of the texture
+                    const edgeU = uMin + (uMax - uMin) * 0.5;
+                    uvs.push(
+                        edgeU, vMin,
+                        edgeU, vMin,
+                        edgeU, vMax,
+                        edgeU, vMax
+                    );
+                } else {
+                    uvs.push(
+                        uMin, vMin,
+                        uMax, vMin,
+                        uMax, vMax,
+                        uMin, vMax
+                    );
+                }
             } else {
                 uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
             }

@@ -127,8 +127,8 @@ export class TextureAtlas {
 
     public async loadEntitySkin(name: string, path: string): Promise<void> {
         return new Promise((resolve) => {
-            // Check if already loaded (check one face)
-            if (this.textures.has(`${name}_head_front`)) {
+            // Check if already loaded (check banner front)
+            if (this.textures.has(`${name}_banner_front`)) {
                 resolve();
                 return;
             }
@@ -139,13 +139,23 @@ export class TextureAtlas {
             img.src = `${this.entityUrl}${path}.png`;
 
             img.onload = () => {
-                this.cropAndDraw(img, 8, 8, 8, 8, `${name}_head_front`);
-                this.cropAndDraw(img, 0, 8, 8, 8, `${name}_head_right`);
-                this.cropAndDraw(img, 16, 8, 8, 8, `${name}_head_left`);
-                this.cropAndDraw(img, 24, 8, 8, 8, `${name}_head_back`);
-                this.cropAndDraw(img, 8, 0, 8, 8, `${name}_head_top`);
-                this.cropAndDraw(img, 16, 0, 8, 8, `${name}_head_bottom`);
-                
+                // For banner-style entities, create a combined front view texture
+                // Minecraft skin layout (64x64 for new format, 64x32 for old):
+                // - Head front: (8,8) to (16,16) - 8x8
+                // - Body front: (20,20) to (28,32) - 8x12
+                // - Right arm front: (44,20) to (48,32) - 4x12
+                // - Left arm front: (36,52) to (40,64) - 4x12 (new format) or mirrored right arm
+                // - Right leg front: (4,20) to (8,32) - 4x12
+                // - Left leg front: (20,52) to (24,64) - 4x12 (new format) or mirrored right leg
+
+                // Create a composite banner texture showing the full entity front
+                this.createBannerTexture(img, name, 'front');
+                this.createBannerTexture(img, name, 'back');
+
+                // Also create simple textures for top/bottom edges (use head top/bottom)
+                this.cropAndDraw(img, 8, 0, 8, 8, `${name}_banner_top`);
+                this.cropAndDraw(img, 16, 0, 8, 8, `${name}_banner_bottom`);
+
                 resolve();
             };
 
@@ -154,6 +164,93 @@ export class TextureAtlas {
                 resolve();
             }
         });
+    }
+
+    private createBannerTexture(source: HTMLImageElement, name: string, side: 'front' | 'back') {
+        // Create a canvas for the full body banner texture
+        // Banner aspect ratio: roughly 8 wide x 24 tall (head + body + legs)
+        const tempCanvas = document.createElement('canvas');
+        const bannerWidth = 16;  // Output width
+        const bannerHeight = 32; // Output height (2:1 aspect to match skin proportions)
+        tempCanvas.width = bannerWidth;
+        tempCanvas.height = bannerHeight;
+        const tCtx = tempCanvas.getContext('2d')!;
+        tCtx.imageSmoothingEnabled = false;
+
+        // Clear with transparency
+        tCtx.clearRect(0, 0, bannerWidth, bannerHeight);
+
+        // Determine source coordinates based on front or back
+        // Skin texture coordinates (standard 64x64 skin):
+        const isFront = side === 'front';
+
+        // Scale factor from skin to banner
+        // We want to fit the entity in a 16x32 texture
+        // Entity is: 8 wide (head/body), 24 tall (8 head + 12 body + 12 legs if standing)
+
+        // Head (8x8) -> centered at top
+        const headSx = isFront ? 8 : 24;
+        const headSy = 8;
+        tCtx.drawImage(source, headSx, headSy, 8, 8, 4, 0, 8, 8);
+
+        // Body (8x12) -> below head
+        const bodySx = isFront ? 20 : 32;
+        const bodySy = 20;
+        tCtx.drawImage(source, bodySx, bodySy, 8, 12, 4, 8, 8, 12);
+
+        // Right arm (4x12) -> left side of body from viewer's perspective
+        const rArmSx = isFront ? 44 : 52;
+        const rArmSy = 20;
+        tCtx.drawImage(source, rArmSx, rArmSy, 4, 12, 0, 8, 4, 12);
+
+        // Left arm (4x12) -> right side of body from viewer's perspective
+        // New skin format has left arm at (36,52), old format mirrors right arm
+        const lArmSx = isFront ? 36 : 44;
+        const lArmSy = 52;
+        // Check if new format (image height >= 64)
+        if (source.height >= 64) {
+            tCtx.drawImage(source, lArmSx, lArmSy, 4, 12, 12, 8, 4, 12);
+        } else {
+            // Old format - mirror right arm
+            tCtx.save();
+            tCtx.translate(16, 0);
+            tCtx.scale(-1, 1);
+            tCtx.drawImage(source, rArmSx, rArmSy, 4, 12, 0, 8, 4, 12);
+            tCtx.restore();
+        }
+
+        // Right leg (4x12) -> below body, left side from viewer
+        const rLegSx = isFront ? 4 : 12;
+        const rLegSy = 20;
+        tCtx.drawImage(source, rLegSx, rLegSy, 4, 12, 4, 20, 4, 12);
+
+        // Left leg (4x12) -> below body, right side from viewer
+        const lLegSx = isFront ? 20 : 28;
+        const lLegSy = 52;
+        if (source.height >= 64) {
+            tCtx.drawImage(source, lLegSx, lLegSy, 4, 12, 8, 20, 4, 12);
+        } else {
+            // Old format - mirror right leg
+            tCtx.save();
+            tCtx.translate(16, 0);
+            tCtx.scale(-1, 1);
+            tCtx.drawImage(source, rLegSx, rLegSy, 4, 12, 4, 20, 4, 12);
+            tCtx.restore();
+        }
+
+        // Convert to image and add to atlas
+        const img = new Image();
+        img.src = tempCanvas.toDataURL();
+        img.onload = () => {
+            this.drawToCanvas(img, `${name}_banner_${side}`);
+            tempCanvas.width = 0;
+            tempCanvas.height = 0;
+        };
+        img.onerror = () => {
+            console.warn(`Failed to create banner texture for ${name}`);
+            tempCanvas.width = 0;
+            tempCanvas.height = 0;
+        };
     }
 
     private cropAndDraw(source: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, id: string) {

@@ -47,21 +47,22 @@ const unique = (name: string, group: string, category: string, top: string, side
 });
 
 // Helper for entities - stores relative texture path in 'side' for the loader to use
+// Entities are rendered as banner-style flat panels with front/back textures
 const entity = (name: string, category: string, path: string) => ({
-    id: nextId++, 
-    name, 
-    group: 'Entities', 
-    category, 
-    textures: { 
-        top: `${name}_head_top`, 
-        bottom: `${name}_head_bottom`, 
+    id: nextId++,
+    name,
+    group: 'Entities',
+    category,
+    textures: {
+        top: `${name}_banner_top`,
+        bottom: `${name}_banner_bottom`,
         side: path, // Used as path payload for loader
-        front: `${name}_head_front`,
-        back: `${name}_head_back`,
-        left: `${name}_head_left`,
-        right: `${name}_head_right`
+        front: `${name}_banner_front`,
+        back: `${name}_banner_back`,
+        left: `${name}_banner_front`,  // Use front for left edge
+        right: `${name}_banner_front`  // Use front for right edge
     },
-    transparent: true // Heads are smaller/transparent parts often
+    transparent: true // Banners have transparent parts
 });
 
 // --- GENERATORS ---
