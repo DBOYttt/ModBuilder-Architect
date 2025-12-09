@@ -21,6 +21,7 @@ export class TextureAtlas {
     private nextY: number = 0;
     private readonly atlasSize = 2048;
     private readonly tileSize = 16;
+    private readonly tilePadding = 2; // Padding between tiles to prevent bleeding
     private readonly baseUrl = 'https://raw.githubusercontent.com/Faithful-Pack/Default-Java/1.21.5/assets/minecraft/textures/';
     private readonly entityUrl = 'https://raw.githubusercontent.com/Faithful-Pack/Default-Java/1.21.5/assets/minecraft/textures/entity/';
     private loadedTextureNames: Set<string> = new Set();
@@ -33,28 +34,32 @@ export class TextureAtlas {
         this.canvas = document.createElement('canvas');
         this.canvas.width = this.atlasSize;
         this.canvas.height = this.atlasSize;
-        
+
         this.ctx = this.canvas.getContext('2d', { willReadFrequently: true })!;
+        // Disable image smoothing to prevent texture feathering/bleeding
+        this.ctx.imageSmoothingEnabled = false;
         this.ctx.clearRect(0, 0, this.atlasSize, this.atlasSize);
 
-        // Debug Pattern at 0,0
+        // Debug Pattern at 0,0 (with padding considered)
         this.ctx.fillStyle = '#ff00ff';
         this.ctx.fillRect(0, 0, 8, 8);
         this.ctx.fillRect(8, 8, 8, 8);
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(8, 0, 8, 8);
         this.ctx.fillRect(0, 8, 8, 8);
-        
+
+        // Account for padding in tile size calculation
+        const effectiveTileSize = this.tileSize + this.tilePadding;
         const size = this.tileSize / this.atlasSize;
         this.textures.set('MISSING', {
-            u: 0, 
-            v: 1 - size, 
-            uSize: size, 
-            vSize: size, 
-            size 
+            u: 0,
+            v: 1 - size,
+            uSize: size,
+            vSize: size,
+            size
         });
-        
-        this.nextX = this.tileSize;
+
+        this.nextX = effectiveTileSize;
 
         this.texture = new THREE.CanvasTexture(this.canvas);
         this.texture.magFilter = THREE.NearestFilter;
@@ -157,26 +162,39 @@ export class TextureAtlas {
         tempCanvas.width = this.tileSize;
         tempCanvas.height = this.tileSize;
         const tCtx = tempCanvas.getContext('2d')!;
-        
+
         // Draw scaled up to 16x16
         tCtx.imageSmoothingEnabled = false;
         tCtx.drawImage(source, sx, sy, sw, sh, 0, 0, this.tileSize, this.tileSize);
-        
+
         // Now draw this temp canvas to the atlas
         const img = new Image();
         img.src = tempCanvas.toDataURL();
-        img.onload = () => this.drawToCanvas(img, id);
+        img.onload = () => {
+            this.drawToCanvas(img, id);
+            // Clean up temp canvas to prevent memory leak
+            tempCanvas.width = 0;
+            tempCanvas.height = 0;
+        };
+        img.onerror = () => {
+            console.warn(`Failed to process cropped texture: ${id}`);
+            // Clean up even on error
+            tempCanvas.width = 0;
+            tempCanvas.height = 0;
+        };
     }
 
     private drawToCanvas(img: HTMLImageElement, id: string) {
         if (img.width === 0 || img.height === 0) return;
 
-        if (this.nextX + this.tileSize > this.atlasSize) {
+        const effectiveTileSize = this.tileSize + this.tilePadding;
+
+        if (this.nextX + effectiveTileSize > this.atlasSize) {
             this.nextX = 0;
-            this.nextY += this.tileSize;
+            this.nextY += effectiveTileSize;
         }
-        
-        if (this.nextY + this.tileSize > this.atlasSize) {
+
+        if (this.nextY + effectiveTileSize > this.atlasSize) {
             console.error('Texture Atlas full!');
             return;
         }
@@ -184,23 +202,26 @@ export class TextureAtlas {
         const x = this.nextX;
         const y = this.nextY;
 
+        // Ensure image smoothing stays disabled
+        this.ctx.imageSmoothingEnabled = false;
         this.ctx.drawImage(img, 0, 0, img.width, img.height, x, y, this.tileSize, this.tileSize);
-        
+
         const u = x / this.atlasSize;
         const v = 1 - ((y + this.tileSize) / this.atlasSize);
         const size = this.tileSize / this.atlasSize;
 
-        const uv: TextureUV = { 
-            u, 
-            v, 
-            uSize: size, 
+        const uv: TextureUV = {
+            u,
+            v,
+            uSize: size,
             vSize: size,
-            size 
+            size
         };
         this.textures.set(id, uv);
 
-        this.nextX += this.tileSize;
-        
+        // Advance position with padding
+        this.nextX += effectiveTileSize;
+
         this.texture.needsUpdate = true;
         this.material.map = this.texture; // Re-assign to ensure update
         this.material.needsUpdate = true;

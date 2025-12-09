@@ -5,6 +5,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { textureAtlas } from '../TextureAtlas';
 import { VoxelWorld } from '../VoxelWorld';
+import { EntityRenderer } from '../EntityRenderer';
 import { BlockInteraction } from './BlockInteraction';
 import { ToolType, ViewType } from '../types';
 import { HistoryManager } from '../utils/HistoryManager';
@@ -71,22 +72,59 @@ const SceneEnvironment: React.FC<{ theme: 'day' | 'night' }> = ({ theme }) => {
     );
 };
 
-const WorldRenderer: React.FC<{ 
-    voxelWorld: VoxelWorld, 
-    onMaxLayerFound?: (n: number) => void 
+const WorldRenderer: React.FC<{
+    voxelWorld: VoxelWorld,
+    onMaxLayerFound?: (n: number) => void
 }> = ({ voxelWorld, onMaxLayerFound }) => {
     const { scene } = useThree();
-    const generated = useRef(false);
+    const entityRendererRef = useRef<EntityRenderer | null>(null);
+    const lastEntityUpdateRef = useRef<number>(0);
 
     useEffect(() => {
         const group = voxelWorld.group;
         scene.add(group);
-        return () => { scene.remove(group); };
+
+        // Initialize entity renderer
+        entityRendererRef.current = new EntityRenderer();
+        scene.add(entityRendererRef.current.group);
+
+        return () => {
+            scene.remove(group);
+            if (entityRendererRef.current) {
+                scene.remove(entityRendererRef.current.group);
+                entityRendererRef.current.dispose();
+            }
+        };
     }, [scene, voxelWorld]);
+
+    // Listen for world changes to update entities
+    useEffect(() => {
+        const handleChange = () => {
+            if (entityRendererRef.current) {
+                const entities = voxelWorld.getEntityInstances();
+                entityRendererRef.current.updateEntities(entities);
+            }
+        };
+
+        voxelWorld.addChangeListener(handleChange);
+        // Initial update
+        handleChange();
+
+        return () => {
+            voxelWorld.removeChangeListener(handleChange);
+        };
+    }, [voxelWorld]);
 
     useFrame(({ clock }) => {
         if (onMaxLayerFound && clock.elapsedTime % 1 < 0.1) {
              onMaxLayerFound(voxelWorld.getMaxLayer());
+        }
+
+        // Periodic entity update (in case textures loaded late)
+        if (entityRendererRef.current && clock.elapsedTime - lastEntityUpdateRef.current > 2) {
+            const entities = voxelWorld.getEntityInstances();
+            entityRendererRef.current.updateEntities(entities);
+            lastEntityUpdateRef.current = clock.elapsedTime;
         }
     });
 

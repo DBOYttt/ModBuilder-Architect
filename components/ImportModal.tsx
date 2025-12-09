@@ -44,8 +44,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
 
     // --- HEURISTIC GROUPING LOGIC ---
     const groupTextures = (textures: FoundTexture[]): ConfigItem[] => {
-        const groups: Record<string, { top?: FoundTexture, side?: FoundTexture, bottom?: FoundTexture, front?: FoundTexture }> = {};
-        
+        const groups: Record<string, { top?: FoundTexture, side?: FoundTexture, bottom?: FoundTexture, front?: FoundTexture; modId?: string }> = {};
+
         // Suffixes to strip to find the "base name"
         // Order matters: specific before general (longest first)
         const suffixes = [
@@ -53,7 +53,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
             { s: '_front_horizontal', type: 'front' },
             { s: '_front_vertical', type: 'front' },
             { s: '_top_sticky', type: 'top' },
-            
+
             // Redstone / States
             { s: '_top_on', type: 'top' },
             { s: '_top_off', type: 'top' },
@@ -63,20 +63,20 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
             { s: '_2tick', type: 'top' },
             { s: '_3tick', type: 'top' },
             { s: '_4tick', type: 'top' },
-            
+
             // Standard Faces
             { s: '_bottom', type: 'bottom' },
-            { s: '_front', type: 'front' }, 
+            { s: '_front', type: 'front' },
             { s: '_side', type: 'side' },
             { s: '_top', type: 'top' },
             { s: '_end', type: 'top' },    // logs
-            
+
             // Misc
             { s: '_open', type: 'front' }, // barrel
             { s: '_moist', type: 'top' },  // farmland
             { s: '_snow', type: 'side' },  // grass_block_snow
-            { s: '_base', type: 'side' }, 
-            
+            { s: '_base', type: 'side' },
+
             // Cardinal Directions
             { s: '_north', type: 'side' },
             { s: '_south', type: 'side' },
@@ -97,7 +97,17 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
         ];
 
         textures.forEach(tex => {
-            let baseName = tex.name;
+            let rawName = tex.name;
+            let modId: string | undefined;
+
+            // Handle namespaced textures (modid:texturename)
+            if (rawName.includes(':')) {
+                const parts = rawName.split(':');
+                modId = parts[0];
+                rawName = parts[1];
+            }
+
+            let baseName = rawName;
             let type: 'top' | 'side' | 'bottom' | 'front' | 'all' = 'all';
 
             // Check suffixes
@@ -108,15 +118,18 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
                     break;
                 }
             }
-            
+
             // Clean up trailing underscores and numbers (often used for variants like _0, _1 or extra _)
             baseName = baseName.replace(/_\d+$/, '').replace(/_+$/, '');
 
-            if (!groups[baseName]) {
-                groups[baseName] = {};
+            // Include modId in group key to prevent collisions between mods
+            const groupKey = modId ? `${modId}:${baseName}` : baseName;
+
+            if (!groups[groupKey]) {
+                groups[groupKey] = { modId };
             }
-            
-            const g = groups[baseName];
+
+            const g = groups[groupKey];
 
             if (type === 'all') {
                 // If it's a generic name (e.g. "stone"), use for all unless overridden
@@ -137,10 +150,22 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
         });
 
         // Convert groups to ConfigItems
-        return Object.entries(groups).map(([baseName, g], idx) => {
+        return Object.entries(groups).map(([groupKey, g], idx) => {
             // Must have at least one texture
             const mainTex = g.front || g.side || g.top || g.bottom;
             if (!mainTex) return null;
+
+            // Extract display name from group key
+            let displayName = groupKey;
+            if (groupKey.includes(':')) {
+                // For mod textures, format as "ModName - BlockName"
+                const [modPart, blockPart] = groupKey.split(':');
+                const modName = modPart.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const blockName = blockPart.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                displayName = `${modName}: ${blockName}`;
+            } else {
+                displayName = groupKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
 
             // Resolve Faces
             // Priority: Front overrides Side (e.g. Furnace Front is the "Side" face in our engine limitation)
@@ -151,10 +176,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
             // Detect if this is a grouped block (has different textures)
             const isGrouped = !!((g.side || g.front) && g.top && (g.side?.name !== g.top?.name));
 
+            // Determine category based on mod
+            const category = g.modId ? `Mod: ${g.modId}` : 'Imported';
+
             return {
                 id: `blk-${idx}`,
-                blockName: baseName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                category: 'Imported',
+                blockName: displayName,
+                category,
                 selected: true, // Auto-select by default
                 textures: { top, side, bottom },
                 isGrouped
@@ -162,30 +190,107 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
         }).filter(Boolean) as ConfigItem[];
     };
 
+    // Detect if path is a mod/resource pack texture path and extract clean name
+    const parseTexturePath = (fullPath: string): { name: string; type: 'block' | 'item' | 'entity' | 'other'; modId?: string } => {
+        // Common patterns:
+        // assets/<modid>/textures/block/<name>.png - Mod block textures
+        // assets/<modid>/textures/item/<name>.png - Mod item textures
+        // assets/<modid>/textures/entity/<name>.png - Mod entity textures
+        // assets/minecraft/textures/block/<name>.png - Vanilla resource pack
+        // textures/block/<name>.png - Simple resource pack
+        // block/<name>.png - Very simple structure
+        // <name>.png - Flat structure
+
+        const blockMatch = fullPath.match(/assets\/([^/]+)\/textures\/block\/(.+)\.png$/i);
+        if (blockMatch) {
+            return {
+                name: blockMatch[2].split('/').pop() || blockMatch[2],
+                type: 'block',
+                modId: blockMatch[1] !== 'minecraft' ? blockMatch[1] : undefined
+            };
+        }
+
+        const itemMatch = fullPath.match(/assets\/([^/]+)\/textures\/item\/(.+)\.png$/i);
+        if (itemMatch) {
+            return {
+                name: itemMatch[2].split('/').pop() || itemMatch[2],
+                type: 'item',
+                modId: itemMatch[1] !== 'minecraft' ? itemMatch[1] : undefined
+            };
+        }
+
+        const entityMatch = fullPath.match(/assets\/([^/]+)\/textures\/entity\/(.+)\.png$/i);
+        if (entityMatch) {
+            return {
+                name: entityMatch[2].split('/').pop() || entityMatch[2],
+                type: 'entity',
+                modId: entityMatch[1] !== 'minecraft' ? entityMatch[1] : undefined
+            };
+        }
+
+        // Simpler patterns
+        const simpleBlockMatch = fullPath.match(/textures\/block\/(.+)\.png$/i);
+        if (simpleBlockMatch) {
+            return { name: simpleBlockMatch[1].split('/').pop() || simpleBlockMatch[1], type: 'block' };
+        }
+
+        const verySimpleMatch = fullPath.match(/block\/(.+)\.png$/i);
+        if (verySimpleMatch) {
+            return { name: verySimpleMatch[1].split('/').pop() || verySimpleMatch[1], type: 'block' };
+        }
+
+        // Fallback: just use filename
+        const filename = fullPath.split('/').pop()?.replace('.png', '') || 'unknown';
+        return { name: filename, type: 'other' };
+    };
+
     const processZip = async (file: File | Blob) => {
         setLoading(true);
         try {
             const zip = await JSZip.loadAsync(file);
             const textures: FoundTexture[] = [];
-            
+
             // Allow any PNG file in the archive
             const regex = /\.png$/i;
 
             const entries: Array<{path: string, obj: JSZip.JSZipObject}> = [];
-            
+
             zip.forEach((relativePath, zipEntry) => {
                 if (!zipEntry.dir && regex.test(relativePath)) {
                     entries.push({ path: relativePath, obj: zipEntry });
                 }
             });
 
-            for (const { path, obj } of entries) {
+            // Detect mod structure: prioritize block textures
+            const blockTextures: typeof entries = [];
+            const otherTextures: typeof entries = [];
+
+            for (const entry of entries) {
+                const parsed = parseTexturePath(entry.path);
+                if (parsed.type === 'block') {
+                    blockTextures.push(entry);
+                } else if (parsed.type !== 'entity') { // Skip entity textures for block import
+                    otherTextures.push(entry);
+                }
+            }
+
+            // Prefer block textures if found, otherwise use all
+            const texturesToProcess = blockTextures.length > 0 ? blockTextures : otherTextures;
+
+            for (const { path, obj } of texturesToProcess) {
                 try {
                     const base64 = await obj.async('base64');
-                    // Use just filename for identification, ignore folders
-                    const name = path.split('/').pop()?.replace('.png', '') || 'unknown';
+                    const parsed = parseTexturePath(path);
+
+                    // Build name with optional mod prefix for disambiguation
+                    let texName = parsed.name;
+                    if (parsed.modId && blockTextures.length > 0) {
+                        // Add mod prefix only if we found mod structure
+                        texName = `${parsed.modId}:${parsed.name}`;
+                    }
+
                     textures.push({
-                        name,
+                        name: texName,
                         path,
                         data: `data:image/png;base64,${base64}`
                     });
@@ -195,7 +300,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
             }
 
             if (textures.length === 0) {
-                alert('No PNG files found in the archive.');
+                alert('No block textures found in the archive. Make sure your mod/resource pack has textures in assets/<modid>/textures/block/');
                 setLoading(false);
                 return;
             }
@@ -222,69 +327,96 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
         if (selectedItems.length === 0) return;
 
         setLoading(true);
-        
+
         let startId = getNextBlockId();
         const savedBlocks: CustomBlockData[] = [];
+        let textureCounter = 0; // Counter for unique keys
+        const importTimestamp = Date.now();
+        const results: { success: boolean; name: string; error?: string }[] = [];
 
         // Process sequentially to avoid race conditions in Atlas
         for (const item of selectedItems) {
-            const id = startId++;
-            
-            // Helper to load texture and return Atlas Key
-            // We use a simplified key to avoid massive strings, but ensure uniqueness
-            // sanitize name for key
-            const safeName = item.blockName.replace(/[^a-zA-Z0-9]/g, '');
-            
-            const processTex = async (tex: FoundTexture, suffix: string): Promise<string> => {
-                 const atlasKey = `cust_${safeName}_${suffix}_${Date.now()}_${Math.floor(Math.random()*1000)}`; 
-                 await textureAtlas.addTextureFromData(atlasKey, tex.data);
-                 return atlasKey;
-            };
+            try {
+                const id = startId++;
 
-            // We must store the raw data to persist correctly
-            const textureDataMap: Record<string, string> = {};
+                // Helper to load texture and return Atlas Key with guaranteed uniqueness
+                const safeName = item.blockName.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 32);
 
-            // Top
-            const topKey = await processTex(item.textures.top, 'top');
-            textureDataMap[topKey] = item.textures.top.data;
+                const processTex = async (tex: FoundTexture, suffix: string): Promise<string | null> => {
+                    // Use counter + id + timestamp for guaranteed uniqueness
+                    const atlasKey = `cust_${id}_${safeName}_${suffix}_${importTimestamp}_${textureCounter++}`;
+                    try {
+                        await textureAtlas.addTextureFromData(atlasKey, tex.data);
+                        return atlasKey;
+                    } catch (error) {
+                        console.error(`Failed to process texture ${tex.name}:`, error);
+                        return null;
+                    }
+                };
 
-            // Side
-            const sideKey = await processTex(item.textures.side, 'side');
-            textureDataMap[sideKey] = item.textures.side.data;
+                // We must store the raw data to persist correctly
+                const textureDataMap: Record<string, string> = {};
 
-            // Bottom
-            const botKey = await processTex(item.textures.bottom, 'bot');
-            textureDataMap[botKey] = item.textures.bottom.data;
+                // Top
+                const topKey = await processTex(item.textures.top, 'top');
+                if (!topKey) throw new Error('Failed to load top texture');
+                textureDataMap[topKey] = item.textures.top.data;
 
-            const def: CustomBlockData = {
-                id,
-                name: item.blockName,
-                group: 'Custom',
-                category: item.category,
-                textures: {
-                    top: topKey,
-                    side: sideKey,
-                    bottom: botKey
-                },
-                textureData: textureDataMap
-            };
-            
-            registerCustomBlock(def);
-            savedBlocks.push(def);
+                // Side
+                const sideKey = await processTex(item.textures.side, 'side');
+                if (!sideKey) throw new Error('Failed to load side texture');
+                textureDataMap[sideKey] = item.textures.side.data;
+
+                // Bottom
+                const botKey = await processTex(item.textures.bottom, 'bot');
+                if (!botKey) throw new Error('Failed to load bottom texture');
+                textureDataMap[botKey] = item.textures.bottom.data;
+
+                const def: CustomBlockData = {
+                    id,
+                    name: item.blockName,
+                    group: 'Custom',
+                    category: item.category,
+                    textures: {
+                        top: topKey,
+                        side: sideKey,
+                        bottom: botKey
+                    },
+                    textureData: textureDataMap
+                };
+
+                registerCustomBlock(def);
+                savedBlocks.push(def);
+                results.push({ success: true, name: item.blockName });
+            } catch (error) {
+                console.error(`Failed to import ${item.blockName}:`, error);
+                results.push({ success: false, name: item.blockName, error: String(error) });
+            }
         }
 
         // Persist via IndexedDB
-        try {
-            await Storage.saveCustomBlocks(savedBlocks);
-        } catch (e) {
-            console.error("Storage failed", e);
-            alert("Failed to save custom blocks to storage.");
+        if (savedBlocks.length > 0) {
+            try {
+                await Storage.saveCustomBlocks(savedBlocks);
+            } catch (e) {
+                console.error("Storage failed", e);
+                alert("Failed to save custom blocks to storage. Blocks will be lost on refresh.");
+                setLoading(false);
+                return; // Don't close modal on storage failure
+            }
+        }
+
+        // Show summary if any failures
+        const succeeded = results.filter(r => r.success).length;
+        const failed = results.filter(r => !r.success).length;
+        if (failed > 0) {
+            alert(`Import completed: ${succeeded} succeeded, ${failed} failed. Check console for details.`);
         }
 
         setLoading(false);
         onImportComplete();
         onClose();
-        
+
         setStep(1);
         setConfigList([]);
     };

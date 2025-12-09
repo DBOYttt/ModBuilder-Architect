@@ -1,9 +1,11 @@
 
 import * as THREE from 'three';
 import { textureAtlas } from './TextureAtlas';
-import { BLOCKS, BlockDef } from './blocks';
+import { BLOCKS } from './blocks';
+import type { BlockDef } from './blocks';
 
-export { BLOCKS, BlockDef };
+export { BLOCKS };
+export type { BlockDef };
 
 export const CHUNK_SIZE = 16;
 
@@ -116,14 +118,14 @@ export class VoxelWorld {
             const cx = parts[0];
             const cy = parts[1];
             const cz = parts[2];
-            
+
             for(let i=0; i<chunk.length; i++) {
                 if(chunk[i] !== 0) {
                      const ly = Math.floor(i / (CHUNK_SIZE * CHUNK_SIZE));
                      const rem = i % (CHUNK_SIZE * CHUNK_SIZE);
                      const lz = Math.floor(rem / CHUNK_SIZE);
                      const lx = rem % CHUNK_SIZE;
-                     
+
                      blocks.push({
                          x: cx * CHUNK_SIZE + lx,
                          y: cy * CHUNK_SIZE + ly,
@@ -135,6 +137,39 @@ export class VoxelWorld {
             }
         });
         return blocks;
+    }
+
+    public getEntityInstances(): {x: number, y: number, z: number, blockId: number, rotation: number}[] {
+        const entities: {x: number, y: number, z: number, blockId: number, rotation: number}[] = [];
+        this.chunks.forEach((chunk, key) => {
+            const meta = this.chunkMetadata.get(key);
+            const parts = key.split(',').map(Number);
+            const cx = parts[0];
+            const cy = parts[1];
+            const cz = parts[2];
+
+            for(let i=0; i<chunk.length; i++) {
+                const blockId = chunk[i];
+                if(blockId !== 0) {
+                    const def = BLOCKS[blockId];
+                    if (def && def.group === 'Entities') {
+                        const ly = Math.floor(i / (CHUNK_SIZE * CHUNK_SIZE));
+                        const rem = i % (CHUNK_SIZE * CHUNK_SIZE);
+                        const lz = Math.floor(rem / CHUNK_SIZE);
+                        const lx = rem % CHUNK_SIZE;
+
+                        entities.push({
+                            x: cx * CHUNK_SIZE + lx,
+                            y: cy * CHUNK_SIZE + ly,
+                            z: cz * CHUNK_SIZE + lz,
+                            blockId,
+                            rotation: meta ? meta[i] : 0
+                        });
+                    }
+                }
+            }
+        });
+        return entities;
     }
 
     public getMaxLayer(): number {
@@ -307,12 +342,15 @@ export class VoxelWorld {
                     const index = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE;
                     const blockId = chunk[index];
 
-                    if (blockId === 0) continue; 
+                    if (blockId === 0) continue;
 
                     const worldX = startX + x;
                     const worldZ = startZ + z;
                     const def = BLOCKS[blockId];
                     if (!def) continue;
+
+                    // Skip entities - they are rendered separately by EntityRenderer
+                    if (def.group === 'Entities') continue;
 
                     const rotation = meta ? (meta[index] & 0x03) : 0;
 
@@ -449,9 +487,11 @@ export class VoxelWorld {
         
         let uv = textureAtlas.getUV(textureName);
         if (!uv) uv = textureAtlas.getUV('MISSING');
-        
+
         if (uv) {
-            const eps = 0.001; 
+            // Inset UVs to prevent texture bleeding at tile edges
+            // Using half-pixel inset based on tile size (16px in 2048px atlas)
+            const eps = 0.5 / 2048; // Half pixel in atlas space
             const uMin = uv.u + eps;
             const uMax = uv.u + uv.uSize - eps;
             const vMin = uv.v + eps;

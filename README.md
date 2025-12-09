@@ -19,8 +19,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1WE9jWcOoGt82KE48-7dDmW
 3. Run the app:
    `npm run dev`
 
-## Known Issues
+## Fixed Issues
 
-1. Custom textures import (especially from mod zips)
-2. Feathering textures
-3. Entities models are still blocks
+1. ~~Custom textures import (especially from mod zips)~~ - Now properly parses mod zip structures (`assets/<modid>/textures/block/`) and handles namespaced textures
+2. ~~Feathering textures~~ - Fixed by disabling image smoothing, adding tile padding, and using proper UV insets
+3. ~~Entities models are still blocks~~ - Entities now render as separate smaller mob head models (0.5 block scale) with proper face textures
