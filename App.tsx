@@ -1,13 +1,13 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Scene from './components/Scene';
-import { 
-    Box, Trash2, Pipette, Sun, Moon, Search, 
-    ChevronDown, ChevronRight, Hand, Grid3X3, 
+import {
+    Box, Trash2, Pipette, Sun, Moon, Search,
+    ChevronDown, ChevronRight, Hand, Grid3X3,
     ArrowDownToLine, Move3d, RectangleVertical, RectangleHorizontal,
     Move, Layers, Eye, EyeOff, ChevronUp, ScrollText, CheckSquare,
     Save, FolderOpen, FilePlus, Download, Image as ImageIcon, FileSpreadsheet, FileArchive, UploadCloud,
-    RotateCw, Undo, Redo, HelpCircle
+    RotateCw, Undo, Redo, HelpCircle, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen
 } from 'lucide-react';
 import { ToolType, ViewType } from './types';
 import { VoxelWorld } from './VoxelWorld';
@@ -47,7 +47,11 @@ const App: React.FC = () => {
   const [isLoadingTextures, setIsLoadingTextures] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
-  const [blocksVersion, setBlocksVersion] = useState(0); 
+  // Sidebar visibility for responsive layout
+  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
+  const [showRightSidebar, setShowRightSidebar] = useState(true);
+
+  const [blocksVersion, setBlocksVersion] = useState(0);
   const [historyVersion, setHistoryVersion] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -264,41 +268,54 @@ const App: React.FC = () => {
       <ContextMenu data={contextMenu} onClose={() => setContextMenu(null)} isDay={isDay} />
 
       {/* LEFT SIDEBAR */}
-      <div className={`w-80 flex-shrink-0 flex flex-col z-20 transition-colors duration-300 ${sidebarClasses}`}>
-          <div className="p-4 border-b border-inherit">
+      <div className={`${showLeftSidebar ? 'w-72 lg:w-80' : 'w-12'} flex-shrink-0 flex flex-col z-20 transition-all duration-300 ${sidebarClasses}`}>
+          <div className={`p-2 ${showLeftSidebar ? 'p-4' : 'p-2'} border-b border-inherit`}>
               <div className="flex items-center gap-2 mb-4 justify-between">
-                  <div className="flex items-center gap-2">
-                    <Box className="w-6 h-6 text-blue-500" />
-                    <h1 className="text-xl font-bold">Voxel Builder</h1>
-                  </div>
-                  <button onClick={() => setShowHelp(true)} className={`p-1 rounded-full ${isDay ? "hover:bg-gray-100 text-gray-400" : "hover:bg-slate-700 text-slate-500"}`} title="Help">
-                      <HelpCircle size={18} />
-                  </button>
-              </div>
-              <div className="flex gap-2 mb-4">
-                  <button onClick={handleNewProject} className={`flex-1 p-2 rounded flex justify-center items-center gap-2 text-xs font-semibold ${isDay ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-red-900/30 text-red-400 hover:bg-red-900/50'}`}><FilePlus size={14} /> New</button>
-                  <button onClick={handleOpenClick} className={`flex-1 p-2 rounded flex justify-center items-center gap-2 text-xs font-semibold ${isDay ? 'bg-gray-100 hover:bg-gray-200' : 'bg-slate-800 hover:bg-slate-700'}`}><FolderOpen size={14} /> Open</button>
-                  <button onClick={handleSaveProject} className={`flex-1 p-2 rounded flex justify-center items-center gap-2 text-xs font-semibold ${isDay ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50'}`}><Save size={14} /> Save</button>
-                  <div className="relative">
-                    <button onClick={() => setShowExportMenu(!showExportMenu)} className={`h-full aspect-square rounded flex justify-center items-center ${isDay ? 'bg-gray-100 hover:bg-gray-200' : 'bg-slate-800 hover:bg-slate-700'}`}><Download size={14} /></button>
-                    {showExportMenu && (
-                        <div className={`absolute top-full right-0 mt-1 w-48 rounded-lg shadow-xl border z-50 flex flex-col p-1 ${isDay ? 'bg-white border-gray-200' : 'bg-slate-800 border-slate-700'}`}>
-                            <button onClick={handleExportPNG} className={`p-2 text-left text-sm rounded flex items-center gap-2 ${isDay ? 'hover:bg-gray-100' : 'hover:bg-slate-700'}`}><ImageIcon size={14} /> Export PNG</button>
-                            <button onClick={handleExportLayers} className={`p-2 text-left text-sm rounded flex items-center gap-2 ${isDay ? 'hover:bg-gray-100' : 'hover:bg-slate-700'}`}><FileArchive size={14} /> Layers (ZIP)</button>
-                            <button onClick={handleExportCSV} className={`p-2 text-left text-sm rounded flex items-center gap-2 ${isDay ? 'hover:bg-gray-100' : 'hover:bg-slate-700'}`}><FileSpreadsheet size={14} /> CSV</button>
-                        </div>
+                  {showLeftSidebar && (
+                    <div className="flex items-center gap-2">
+                      <Box className="w-6 h-6 text-blue-500" />
+                      <h1 className="text-lg lg:text-xl font-bold">Voxel Builder</h1>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    {showLeftSidebar && (
+                      <button onClick={() => setShowHelp(true)} className={`p-1 rounded-full ${isDay ? "hover:bg-gray-100 text-gray-400" : "hover:bg-slate-700 text-slate-500"}`} title="Help">
+                          <HelpCircle size={18} />
+                      </button>
                     )}
+                    <button onClick={() => setShowLeftSidebar(!showLeftSidebar)} className={`p-1 rounded-full ${isDay ? "hover:bg-gray-100 text-gray-500" : "hover:bg-slate-700 text-slate-400"}`} title={showLeftSidebar ? "Collapse Sidebar" : "Expand Sidebar"}>
+                        {showLeftSidebar ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+                    </button>
                   </div>
               </div>
-              <div className="flex gap-2 mb-2">
-                  <div className="relative flex-grow">
-                      <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                      <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-9 pr-4 py-2 rounded-md text-sm outline-none border transition-colors ${isDay ? "bg-gray-100 border-transparent focus:bg-white focus:border-blue-500 text-gray-800" : "bg-slate-800 border-transparent focus:bg-slate-700 focus:border-blue-500 text-slate-100"}`} />
+              {showLeftSidebar && (
+                <>
+                  <div className="flex gap-2 mb-4">
+                      <button onClick={handleNewProject} className={`flex-1 p-2 rounded flex justify-center items-center gap-2 text-xs font-semibold ${isDay ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-red-900/30 text-red-400 hover:bg-red-900/50'}`}><FilePlus size={14} /> New</button>
+                      <button onClick={handleOpenClick} className={`flex-1 p-2 rounded flex justify-center items-center gap-2 text-xs font-semibold ${isDay ? 'bg-gray-100 hover:bg-gray-200' : 'bg-slate-800 hover:bg-slate-700'}`}><FolderOpen size={14} /> Open</button>
+                      <button onClick={handleSaveProject} className={`flex-1 p-2 rounded flex justify-center items-center gap-2 text-xs font-semibold ${isDay ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50'}`}><Save size={14} /> Save</button>
+                      <div className="relative">
+                        <button onClick={() => setShowExportMenu(!showExportMenu)} className={`h-full aspect-square rounded flex justify-center items-center ${isDay ? 'bg-gray-100 hover:bg-gray-200' : 'bg-slate-800 hover:bg-slate-700'}`}><Download size={14} /></button>
+                        {showExportMenu && (
+                            <div className={`absolute top-full right-0 mt-1 w-48 rounded-lg shadow-xl border z-50 flex flex-col p-1 ${isDay ? 'bg-white border-gray-200' : 'bg-slate-800 border-slate-700'}`}>
+                                <button onClick={handleExportPNG} className={`p-2 text-left text-sm rounded flex items-center gap-2 ${isDay ? 'hover:bg-gray-100' : 'hover:bg-slate-700'}`}><ImageIcon size={14} /> Export PNG</button>
+                                <button onClick={handleExportLayers} className={`p-2 text-left text-sm rounded flex items-center gap-2 ${isDay ? 'hover:bg-gray-100' : 'hover:bg-slate-700'}`}><FileArchive size={14} /> Layers (ZIP)</button>
+                                <button onClick={handleExportCSV} className={`p-2 text-left text-sm rounded flex items-center gap-2 ${isDay ? 'hover:bg-gray-100' : 'hover:bg-slate-700'}`}><FileSpreadsheet size={14} /> CSV</button>
+                            </div>
+                        )}
+                      </div>
                   </div>
-                  <button onClick={() => setShowImportModal(true)} title="Import Custom Block" className={`p-2 rounded-md transition-colors ${isDay ? 'bg-gray-100 hover:bg-gray-200' : 'bg-slate-800 hover:bg-slate-700'}`}><UploadCloud size={20} className="text-blue-500" /></button>
-              </div>
+                  <div className="flex gap-2 mb-2">
+                      <div className="relative flex-grow">
+                          <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                          <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-9 pr-4 py-2 rounded-md text-sm outline-none border transition-colors ${isDay ? "bg-gray-100 border-transparent focus:bg-white focus:border-blue-500 text-gray-800" : "bg-slate-800 border-transparent focus:bg-slate-700 focus:border-blue-500 text-slate-100"}`} />
+                      </div>
+                      <button onClick={() => setShowImportModal(true)} title="Import Custom Block" className={`p-2 rounded-md transition-colors ${isDay ? 'bg-gray-100 hover:bg-gray-200' : 'bg-slate-800 hover:bg-slate-700'}`}><UploadCloud size={20} className="text-blue-500" /></button>
+                  </div>
+                </>
+              )}
           </div>
-          <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
+          {showLeftSidebar && <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
               {Object.keys(groupedBlocks).sort().map(group => (
                   <div key={group} className="mb-2">
                       <button onClick={() => toggleGroup(group)} className={`w-full flex items-center gap-2 p-2 rounded-md text-sm font-semibold transition-colors ${isDay ? "hover:bg-gray-100 text-gray-700" : "hover:bg-slate-800 text-slate-300"}`}>
@@ -325,7 +342,7 @@ const App: React.FC = () => {
                       )}
                   </div>
               ))}
-          </div>
+          </div>}
       </div>
 
       {/* CENTER */}
@@ -402,18 +419,32 @@ const App: React.FC = () => {
       </div>
 
       {/* RIGHT SIDEBAR */}
-      <div className={`w-72 flex-shrink-0 flex flex-col z-20 transition-colors duration-300 ${rightSidebarClasses}`}>
-          <div className="p-4 border-b border-inherit flex items-center gap-2"><ScrollText className="w-5 h-5 text-blue-500" /><h2 className="text-lg font-bold">Materials</h2></div>
-          <div className="flex-1 overflow-y-auto p-4 scrollbar-thin space-y-2">
-              {sortedMaterials.length === 0 ? <div className={`text-center py-8 text-sm ${isDay ? "text-gray-400" : "text-slate-600"}`}>No blocks placed yet.</div> : sortedMaterials.map(({ block, count, stacks }) => (
-                  <div key={block.id} className={`flex items-center gap-3 p-2 rounded-lg border transition-all ${isDay ? "bg-gray-50/50 border-gray-100" : "bg-slate-800/50 border-slate-700/50"} ${gatheredMaterials[block.id] ? "opacity-50" : "opacity-100"}`}>
-                      <button onClick={() => setGatheredMaterials(prev => ({...prev, [block.id]: !prev[block.id]}))} className={`flex-shrink-0 transition-colors ${gatheredMaterials[block.id] ? "text-green-500" : (isDay ? "text-gray-300 hover:text-gray-400" : "text-slate-600 hover:text-slate-500")}`}><CheckSquare size={20} /></button>
-                      <div className="w-8 h-8 rounded p-0.5 bg-black/10 dark:bg-white/10 flex-shrink-0"><img src={getTextureUrl(block.textures.side || block.textures.top)} alt={block.name} className="w-full h-full object-contain pixelated" /></div>
-                      <div className="flex-grow min-w-0"><div className={`text-sm font-medium truncate ${gatheredMaterials[block.id] ? "line-through" : ""}`}>{block.name}</div><div className={`text-xs ${isDay ? "text-gray-500" : "text-slate-400"}`}>×{count} {count >= 64 && <span className="opacity-75">({stacks % 1 === 0 ? stacks : stacks.toFixed(1)} stacks)</span>}</div></div>
-                  </div>
-              ))}
+      <div className={`${showRightSidebar ? 'w-64 lg:w-72' : 'w-12'} flex-shrink-0 flex flex-col z-20 transition-all duration-300 ${rightSidebarClasses}`}>
+          <div className="p-2 lg:p-4 border-b border-inherit flex items-center justify-between gap-2">
+              <button onClick={() => setShowRightSidebar(!showRightSidebar)} className={`p-1 rounded-full ${isDay ? "hover:bg-gray-100 text-gray-500" : "hover:bg-slate-700 text-slate-400"}`} title={showRightSidebar ? "Collapse Materials" : "Expand Materials"}>
+                  {showRightSidebar ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+              </button>
+              {showRightSidebar && (
+                <div className="flex items-center gap-2 flex-grow">
+                  <ScrollText className="w-5 h-5 text-blue-500" />
+                  <h2 className="text-base lg:text-lg font-bold">Materials</h2>
+                </div>
+              )}
           </div>
-          {sortedMaterials.length > 0 && <div className={`p-3 border-t text-xs text-center border-inherit ${isDay ? "text-gray-400" : "text-slate-600"}`}>Total: {Array.from(materialCounts.values()).reduce((a, b) => a + b, 0)}</div>}
+          {showRightSidebar && (
+            <>
+              <div className="flex-1 overflow-y-auto p-2 lg:p-4 scrollbar-thin space-y-2">
+                  {sortedMaterials.length === 0 ? <div className={`text-center py-8 text-sm ${isDay ? "text-gray-400" : "text-slate-600"}`}>No blocks placed yet.</div> : sortedMaterials.map(({ block, count, stacks }) => (
+                      <div key={block.id} className={`flex items-center gap-2 lg:gap-3 p-2 rounded-lg border transition-all ${isDay ? "bg-gray-50/50 border-gray-100" : "bg-slate-800/50 border-slate-700/50"} ${gatheredMaterials[block.id] ? "opacity-50" : "opacity-100"}`}>
+                          <button onClick={() => setGatheredMaterials(prev => ({...prev, [block.id]: !prev[block.id]}))} className={`flex-shrink-0 transition-colors ${gatheredMaterials[block.id] ? "text-green-500" : (isDay ? "text-gray-300 hover:text-gray-400" : "text-slate-600 hover:text-slate-500")}`}><CheckSquare size={18} /></button>
+                          <div className="w-7 h-7 lg:w-8 lg:h-8 rounded p-0.5 bg-black/10 dark:bg-white/10 flex-shrink-0"><img src={getTextureUrl(block.textures.side || block.textures.top)} alt={block.name} className="w-full h-full object-contain pixelated" /></div>
+                          <div className="flex-grow min-w-0"><div className={`text-xs lg:text-sm font-medium truncate ${gatheredMaterials[block.id] ? "line-through" : ""}`}>{block.name}</div><div className={`text-xs ${isDay ? "text-gray-500" : "text-slate-400"}`}>×{count} {count >= 64 && <span className="opacity-75">({stacks % 1 === 0 ? stacks : stacks.toFixed(1)} stacks)</span>}</div></div>
+                      </div>
+                  ))}
+              </div>
+              {sortedMaterials.length > 0 && <div className={`p-3 border-t text-xs text-center border-inherit ${isDay ? "text-gray-400" : "text-slate-600"}`}>Total: {Array.from(materialCounts.values()).reduce((a, b) => a + b, 0)}</div>}
+            </>
+          )}
       </div>
     </div>
   );
