@@ -7,7 +7,7 @@ import {
     ArrowDownToLine, Move3d, RectangleVertical, RectangleHorizontal,
     Move, Layers, Eye, EyeOff, ChevronUp, ScrollText, CheckSquare,
     Save, FolderOpen, FilePlus, Download, Image as ImageIcon, FileSpreadsheet, FileArchive, UploadCloud,
-    RotateCw, Undo, Redo, HelpCircle, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen
+    RotateCw, Undo, Redo, HelpCircle, PanelLeftClose, PanelLeftOpen, X, List
 } from 'lucide-react';
 import { ToolType, ViewType } from './types';
 import { VoxelWorld } from './VoxelWorld';
@@ -49,7 +49,7 @@ const App: React.FC = () => {
 
   // Sidebar visibility for responsive layout
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
-  const [showRightSidebar, setShowRightSidebar] = useState(true);
+  const [showMaterialsPanel, setShowMaterialsPanel] = useState(false);
 
   const [blocksVersion, setBlocksVersion] = useState(0);
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -252,7 +252,6 @@ const App: React.FC = () => {
   // Styles
   const panelClasses = isDay ? "bg-white border-t border-gray-200 text-gray-800" : "bg-slate-900 border-t border-slate-700 text-slate-100";
   const sidebarClasses = isDay ? "bg-white border-r border-gray-200" : "bg-slate-900 border-r border-slate-800 text-slate-100";
-  const rightSidebarClasses = isDay ? "bg-white border-l border-gray-200" : "bg-slate-900 border-l border-slate-800 text-slate-100";
   const getBtnClass = (active: boolean) => active ? "bg-blue-600 text-white shadow-sm" : (isDay ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-slate-700 text-slate-300 hover:bg-slate-600");
   const getDisabledClass = (disabled: boolean) => disabled ? "opacity-50 cursor-not-allowed" : "";
 
@@ -374,8 +373,13 @@ const App: React.FC = () => {
             />
             
             <div className="absolute top-4 right-4 flex gap-2 pointer-events-none">
-                <div className={`pointer-events-auto backdrop-blur-sm p-2 rounded-lg shadow-lg border ${isDay ? "bg-white/90 border-gray-200" : "bg-slate-800/90 border-slate-700"}`}>
-                    <button onClick={() => setTheme(isDay ? 'night' : 'day')} className={`p-2 rounded-full transition-colors ${isDay ? 'hover:bg-gray-100 text-orange-500' : 'hover:bg-slate-700 text-yellow-400'}`}>{isDay ? <Sun size={20} /> : <Moon size={20} />}</button>
+                <div className={`pointer-events-auto backdrop-blur-sm p-2 rounded-lg shadow-lg border flex gap-1 ${isDay ? "bg-white/90 border-gray-200" : "bg-slate-800/90 border-slate-700"}`}>
+                    <button onClick={() => setShowMaterialsPanel(!showMaterialsPanel)} className={`p-2 rounded-full transition-colors ${showMaterialsPanel ? 'bg-blue-500 text-white' : (isDay ? 'hover:bg-gray-100 text-gray-600' : 'hover:bg-slate-700 text-slate-300')}`} title="Materials List">
+                        <ScrollText size={20} />
+                    </button>
+                    <button onClick={() => setTheme(isDay ? 'night' : 'day')} className={`p-2 rounded-full transition-colors ${isDay ? 'hover:bg-gray-100 text-orange-500' : 'hover:bg-slate-700 text-yellow-400'}`} title="Toggle Theme">
+                        {isDay ? <Sun size={20} /> : <Moon size={20} />}
+                    </button>
                 </div>
             </div>
         </div>
@@ -418,34 +422,31 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* RIGHT SIDEBAR */}
-      <div className={`${showRightSidebar ? 'w-64 lg:w-72' : 'w-12'} flex-shrink-0 flex flex-col z-20 transition-all duration-300 ${rightSidebarClasses}`}>
-          <div className="p-2 lg:p-4 border-b border-inherit flex items-center justify-between gap-2">
-              <button onClick={() => setShowRightSidebar(!showRightSidebar)} className={`p-1 rounded-full ${isDay ? "hover:bg-gray-100 text-gray-500" : "hover:bg-slate-700 text-slate-400"}`} title={showRightSidebar ? "Collapse Materials" : "Expand Materials"}>
-                  {showRightSidebar ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
-              </button>
-              {showRightSidebar && (
-                <div className="flex items-center gap-2 flex-grow">
+      {/* FLOATING MATERIALS PANEL */}
+      {showMaterialsPanel && (
+        <div className="fixed top-4 right-4 z-50 w-72 max-h-[80vh] flex flex-col rounded-xl shadow-2xl border overflow-hidden"
+             style={{ backgroundColor: isDay ? 'white' : '#0f172a', borderColor: isDay ? '#e5e7eb' : '#334155' }}>
+            <div className={`p-3 border-b flex items-center justify-between ${isDay ? 'border-gray-200' : 'border-slate-700'}`}>
+                <div className="flex items-center gap-2">
                   <ScrollText className="w-5 h-5 text-blue-500" />
-                  <h2 className="text-base lg:text-lg font-bold">Materials</h2>
+                  <h2 className={`text-base font-bold ${isDay ? 'text-gray-800' : 'text-white'}`}>Materials</h2>
                 </div>
-              )}
-          </div>
-          {showRightSidebar && (
-            <>
-              <div className="flex-1 overflow-y-auto p-2 lg:p-4 scrollbar-thin space-y-2">
-                  {sortedMaterials.length === 0 ? <div className={`text-center py-8 text-sm ${isDay ? "text-gray-400" : "text-slate-600"}`}>No blocks placed yet.</div> : sortedMaterials.map(({ block, count, stacks }) => (
-                      <div key={block.id} className={`flex items-center gap-2 lg:gap-3 p-2 rounded-lg border transition-all ${isDay ? "bg-gray-50/50 border-gray-100" : "bg-slate-800/50 border-slate-700/50"} ${gatheredMaterials[block.id] ? "opacity-50" : "opacity-100"}`}>
-                          <button onClick={() => setGatheredMaterials(prev => ({...prev, [block.id]: !prev[block.id]}))} className={`flex-shrink-0 transition-colors ${gatheredMaterials[block.id] ? "text-green-500" : (isDay ? "text-gray-300 hover:text-gray-400" : "text-slate-600 hover:text-slate-500")}`}><CheckSquare size={18} /></button>
-                          <div className="w-7 h-7 lg:w-8 lg:h-8 rounded p-0.5 bg-black/10 dark:bg-white/10 flex-shrink-0"><img src={getTextureUrl(block.textures.side || block.textures.top)} alt={block.name} className="w-full h-full object-contain pixelated" /></div>
-                          <div className="flex-grow min-w-0"><div className={`text-xs lg:text-sm font-medium truncate ${gatheredMaterials[block.id] ? "line-through" : ""}`}>{block.name}</div><div className={`text-xs ${isDay ? "text-gray-500" : "text-slate-400"}`}>×{count} {count >= 64 && <span className="opacity-75">({stacks % 1 === 0 ? stacks : stacks.toFixed(1)} stacks)</span>}</div></div>
-                      </div>
-                  ))}
-              </div>
-              {sortedMaterials.length > 0 && <div className={`p-3 border-t text-xs text-center border-inherit ${isDay ? "text-gray-400" : "text-slate-600"}`}>Total: {Array.from(materialCounts.values()).reduce((a, b) => a + b, 0)}</div>}
-            </>
-          )}
-      </div>
+                <button onClick={() => setShowMaterialsPanel(false)} className={`p-1 rounded-full ${isDay ? "hover:bg-gray-100 text-gray-500" : "hover:bg-slate-700 text-slate-400"}`}>
+                    <X size={18} />
+                </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 scrollbar-thin space-y-2 max-h-[60vh]">
+                {sortedMaterials.length === 0 ? <div className={`text-center py-8 text-sm ${isDay ? "text-gray-400" : "text-slate-600"}`}>No blocks placed yet.</div> : sortedMaterials.map(({ block, count, stacks }) => (
+                    <div key={block.id} className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${isDay ? "bg-gray-50/50 border-gray-100 text-gray-800" : "bg-slate-800/50 border-slate-700/50 text-white"} ${gatheredMaterials[block.id] ? "opacity-50" : "opacity-100"}`}>
+                        <button onClick={() => setGatheredMaterials(prev => ({...prev, [block.id]: !prev[block.id]}))} className={`flex-shrink-0 transition-colors ${gatheredMaterials[block.id] ? "text-green-500" : (isDay ? "text-gray-300 hover:text-gray-400" : "text-slate-600 hover:text-slate-500")}`}><CheckSquare size={18} /></button>
+                        <div className="w-7 h-7 rounded p-0.5 bg-black/10 dark:bg-white/10 flex-shrink-0"><img src={getTextureUrl(block.textures.side || block.textures.top)} alt={block.name} className="w-full h-full object-contain pixelated" /></div>
+                        <div className="flex-grow min-w-0"><div className={`text-sm font-medium truncate ${gatheredMaterials[block.id] ? "line-through" : ""}`}>{block.name}</div><div className={`text-xs ${isDay ? "text-gray-500" : "text-slate-400"}`}>×{count} {count >= 64 && <span className="opacity-75">({stacks % 1 === 0 ? stacks : stacks.toFixed(1)} stacks)</span>}</div></div>
+                    </div>
+                ))}
+            </div>
+            {sortedMaterials.length > 0 && <div className={`p-2 border-t text-xs text-center ${isDay ? "text-gray-400 border-gray-200" : "text-slate-500 border-slate-700"}`}>Total: {Array.from(materialCounts.values()).reduce((a, b) => a + b, 0)} blocks</div>}
+        </div>
+      )}
     </div>
   );
 };
