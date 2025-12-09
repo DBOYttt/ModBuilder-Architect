@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { textureAtlas } from './TextureAtlas';
 import { BLOCKS } from './blocks';
 import type { BlockDef } from './blocks';
+import { getEntityModel, EntityModel, ModelPart } from './EntityModels';
 
 export interface EntityInstance {
     x: number;
@@ -14,12 +15,7 @@ export interface EntityInstance {
 
 export class EntityRenderer {
     public group: THREE.Group;
-    private meshes: Map<string, THREE.Mesh> = new Map();
-
-    // Banner dimensions (width x height in blocks)
-    private readonly bannerWidth = 0.875;  // Slightly less than 1 block wide
-    private readonly bannerHeight = 1.5;   // 1.5 blocks tall
-    private readonly bannerThickness = 0.0625; // Very thin (1 pixel thickness)
+    private meshes: Map<string, THREE.Group> = new Map();
 
     constructor() {
         this.group = new THREE.Group();
@@ -30,126 +26,192 @@ export class EntityRenderer {
     }
 
     public updateEntities(entities: EntityInstance[]) {
-        // Track which entities are still present
         const presentKeys = new Set<string>();
 
         for (const entity of entities) {
-            // Validate entity position
             if (!Number.isFinite(entity.x) || !Number.isFinite(entity.y) || !Number.isFinite(entity.z)) {
-                console.warn('Entity has invalid position:', entity);
                 continue;
             }
 
             const key = this.getMeshKey(entity.x, entity.y, entity.z);
             presentKeys.add(key);
 
-            let mesh = this.meshes.get(key);
+            let entityGroup = this.meshes.get(key);
             const def = BLOCKS[entity.blockId];
 
-            if (!def) {
-                console.warn(`Entity at (${entity.x}, ${entity.y}, ${entity.z}) has invalid blockId: ${entity.blockId}`);
-                continue;
+            if (!def || def.group !== 'Entities') continue;
+
+            if (!entityGroup) {
+                entityGroup = this.createEntityModel(def);
+                entityGroup.name = key;
+                this.meshes.set(key, entityGroup);
+                this.group.add(entityGroup);
             }
 
-            if (def.group !== 'Entities') continue;
-
-            if (!mesh) {
-                // Create new banner mesh for this entity
-                mesh = this.createBannerMesh(def);
-                mesh.name = key;
-                this.meshes.set(key, mesh);
-                this.group.add(mesh);
-            }
-
-            // Update position (center on block, banner base sits on ground)
-            mesh.position.set(
+            // Position entity (center on block)
+            entityGroup.position.set(
                 entity.x + 0.5,
                 entity.y,
                 entity.z + 0.5
             );
 
-            // Update rotation (validate rotation value)
+            // Apply rotation
             const rotation = Number.isFinite(entity.rotation) ? entity.rotation : 0;
-            mesh.rotation.y = (rotation * Math.PI) / 2;
+            entityGroup.rotation.y = (rotation * Math.PI) / 2;
         }
 
-        // Remove meshes that are no longer present
-        for (const [key, mesh] of this.meshes) {
+        // Remove old meshes
+        for (const [key, entityGroup] of this.meshes) {
             if (!presentKeys.has(key)) {
-                this.group.remove(mesh);
-                mesh.geometry.dispose();
+                this.group.remove(entityGroup);
+                this.disposeGroup(entityGroup);
                 this.meshes.delete(key);
             }
         }
     }
 
-    private createBannerMesh(def: BlockDef): THREE.Mesh {
-        // Create banner geometry with proper UVs
-        const geometry = this.createBannerGeometry(def);
+    private createEntityModel(def: BlockDef): THREE.Group {
+        const model = getEntityModel(def.name);
+        const entityGroup = new THREE.Group();
+
+        // Get the entity's texture name (stored in textures.side as path)
+        const textureName = def.name;
+
+        for (const part of model.parts) {
+            const partMesh = this.createModelPart(part, model, textureName);
+            if (partMesh) {
+                entityGroup.add(partMesh);
+            }
+        }
+
+        // Apply model scale
+        entityGroup.scale.setScalar(model.scale);
+
+        return entityGroup;
+    }
+
+    private createModelPart(part: ModelPart, model: EntityModel, textureName: string): THREE.Mesh | null {
+        // Convert pixel dimensions to blocks (16 pixels = 1 block)
+        const pixelToBlock = 1 / 16;
+
+        const width = part.size[0] * pixelToBlock;
+        const height = part.size[1] * pixelToBlock;
+        const depth = part.size[2] * pixelToBlock;
+
+        // Skip parts with zero dimensions
+        if (width === 0 && height === 0 && depth === 0) return null;
+
+        const geometry = this.createBoxGeometry(
+            width, height, depth,
+            part.uv[0], part.uv[1],
+            part.size[0], part.size[1], part.size[2],
+            model.textureWidth, model.textureHeight,
+            part.mirror || false,
+            textureName
+        );
+
         const mesh = new THREE.Mesh(geometry, textureAtlas.getMaterial());
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+        mesh.name = part.name;
+
+        // Position the part
+        mesh.position.set(
+            part.origin[0],
+            part.origin[1] + height / 2,
+            part.origin[2]
+        );
+
+        // Apply rotation if specified
+        if (part.rotation) {
+            mesh.rotation.set(
+                THREE.MathUtils.degToRad(part.rotation[0]),
+                THREE.MathUtils.degToRad(part.rotation[1]),
+                THREE.MathUtils.degToRad(part.rotation[2])
+            );
+        }
+
         return mesh;
     }
 
-    private createBannerGeometry(def: BlockDef): THREE.BufferGeometry {
-        const w = this.bannerWidth / 2;   // Half width
-        const h = this.bannerHeight;       // Full height
-        const t = this.bannerThickness / 2; // Half thickness
-
+    private createBoxGeometry(
+        width: number, height: number, depth: number,
+        uvX: number, uvY: number,
+        pixelWidth: number, pixelHeight: number, pixelDepth: number,
+        texWidth: number, texHeight: number,
+        mirror: boolean,
+        textureName: string
+    ): THREE.BufferGeometry {
         const positions: number[] = [];
         const normals: number[] = [];
         const uvs: number[] = [];
         const indices: number[] = [];
 
-        // Get the front texture for the banner (use front face texture)
-        const frontTex = def.textures.front || def.textures.side;
-        const backTex = def.textures.back || def.textures.side;
+        const hw = width / 2;
+        const hh = height / 2;
+        const hd = depth / 2;
 
-        // Banner is a thin box with front and back faces showing the entity texture
-        // Side edges are very thin
+        // Get the entity texture UV from atlas
+        const atlasUV = textureAtlas.getUV(`${textureName}_entity`);
+
+        // Calculate UV coordinates for each face based on Minecraft's box UV layout
+        // Layout: [depth][width][depth][width] across top, then sides below
+        const tw = texWidth;
+        const th = texHeight;
+        const pw = pixelWidth;
+        const ph = pixelHeight;
+        const pd = pixelDepth;
+
+        // Face UV coordinates (in texture pixels)
+        // Front face: (uvX + depth, uvY + depth) to (uvX + depth + width, uvY + depth + height)
+        // Back face: (uvX + depth*2 + width, uvY + depth) to (uvX + depth*2 + width*2, uvY + depth + height)
+        // Top face: (uvX + depth, uvY) to (uvX + depth + width, uvY + depth)
+        // Bottom face: (uvX + depth + width, uvY) to (uvX + depth + width*2, uvY + depth)
+        // Right face: (uvX, uvY + depth) to (uvX + depth, uvY + depth + height)
+        // Left face: (uvX + depth + width, uvY + depth) to (uvX + depth*2 + width, uvY + depth + height)
 
         const faces = [
-            // Front face (positive Z) - main display
+            // Front (+Z)
             {
-                verts: [[-w, 0, t], [w, 0, t], [w, h, t], [-w, h, t]],
+                verts: [[-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd]],
                 normal: [0, 0, 1],
-                tex: frontTex
+                uvStart: [uvX + pd, uvY + pd],
+                uvSize: [pw, ph]
             },
-            // Back face (negative Z) - mirrored display
+            // Back (-Z)
             {
-                verts: [[w, 0, -t], [-w, 0, -t], [-w, h, -t], [w, h, -t]],
+                verts: [[hw, -hh, -hd], [-hw, -hh, -hd], [-hw, hh, -hd], [hw, hh, -hd]],
                 normal: [0, 0, -1],
-                tex: backTex,
-                flipU: true // Mirror the texture on back
+                uvStart: [uvX + pd * 2 + pw, uvY + pd],
+                uvSize: [pw, ph]
             },
-            // Top edge (positive Y)
+            // Top (+Y)
             {
-                verts: [[-w, h, t], [w, h, t], [w, h, -t], [-w, h, -t]],
+                verts: [[-hw, hh, -hd], [hw, hh, -hd], [hw, hh, hd], [-hw, hh, hd]],
                 normal: [0, 1, 0],
-                tex: def.textures.top,
-                isEdge: true
+                uvStart: [uvX + pd, uvY],
+                uvSize: [pw, pd]
             },
-            // Bottom edge (negative Y)
+            // Bottom (-Y)
             {
-                verts: [[-w, 0, -t], [w, 0, -t], [w, 0, t], [-w, 0, t]],
+                verts: [[-hw, -hh, hd], [hw, -hh, hd], [hw, -hh, -hd], [-hw, -hh, -hd]],
                 normal: [0, -1, 0],
-                tex: def.textures.bottom,
-                isEdge: true
+                uvStart: [uvX + pd + pw, uvY],
+                uvSize: [pw, pd]
             },
-            // Right edge (positive X)
+            // Right (+X)
             {
-                verts: [[w, 0, t], [w, 0, -t], [w, h, -t], [w, h, t]],
+                verts: [[hw, -hh, hd], [hw, -hh, -hd], [hw, hh, -hd], [hw, hh, hd]],
                 normal: [1, 0, 0],
-                tex: frontTex,
-                isEdge: true
+                uvStart: [uvX + pd + pw, uvY + pd],
+                uvSize: [pd, ph]
             },
-            // Left edge (negative X)
+            // Left (-X)
             {
-                verts: [[-w, 0, -t], [-w, 0, t], [-w, h, t], [-w, h, -t]],
+                verts: [[-hw, -hh, -hd], [-hw, -hh, hd], [-hw, hh, hd], [-hw, hh, -hd]],
                 normal: [-1, 0, 0],
-                tex: frontTex,
-                isEdge: true
+                uvStart: [uvX, uvY + pd],
+                uvSize: [pd, ph]
             },
         ];
 
@@ -160,44 +222,37 @@ export class EntityRenderer {
                 normals.push(...face.normal);
             }
 
-            // Get UV coordinates for this texture
-            let uv = textureAtlas.getUV(face.tex);
-            if (!uv) uv = textureAtlas.getUV('MISSING');
+            // Calculate UVs
+            if (atlasUV) {
+                // Convert texture pixel coordinates to atlas UV coordinates
+                const uStart = atlasUV.u + (face.uvStart[0] / tw) * atlasUV.uSize;
+                const vStart = atlasUV.v + (1 - (face.uvStart[1] + face.uvSize[1]) / th) * atlasUV.vSize;
+                const uEnd = atlasUV.u + ((face.uvStart[0] + face.uvSize[0]) / tw) * atlasUV.uSize;
+                const vEnd = atlasUV.v + (1 - face.uvStart[1] / th) * atlasUV.vSize;
 
-            if (uv) {
-                const eps = 0.5 / 2048;
-                const uMin = uv.u + eps;
-                const uMax = uv.u + uv.uSize - eps;
-                const vMin = uv.v + eps;
-                const vMax = uv.v + uv.vSize - eps;
+                const eps = 0.001;
+                const u0 = uStart + eps;
+                const u1 = uEnd - eps;
+                const v0 = vStart + eps;
+                const v1 = vEnd - eps;
 
-                if ((face as any).flipU) {
-                    // Mirror horizontally for back face
-                    uvs.push(
-                        uMax, vMin,
-                        uMin, vMin,
-                        uMin, vMax,
-                        uMax, vMax
-                    );
-                } else if ((face as any).isEdge) {
-                    // For thin edges, use a small strip of the texture
-                    const edgeU = uMin + (uMax - uMin) * 0.5;
-                    uvs.push(
-                        edgeU, vMin,
-                        edgeU, vMin,
-                        edgeU, vMax,
-                        edgeU, vMax
-                    );
+                if (mirror) {
+                    uvs.push(u1, v0, u0, v0, u0, v1, u1, v1);
                 } else {
-                    uvs.push(
-                        uMin, vMin,
-                        uMax, vMin,
-                        uMax, vMax,
-                        uMin, vMax
-                    );
+                    uvs.push(u0, v0, u1, v0, u1, v1, u0, v1);
                 }
             } else {
-                uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+                // Fallback - use MISSING texture
+                const missing = textureAtlas.getUV('MISSING');
+                if (missing) {
+                    const u0 = missing.u;
+                    const v0 = missing.v;
+                    const u1 = missing.u + missing.uSize;
+                    const v1 = missing.v + missing.vSize;
+                    uvs.push(u0, v0, u1, v0, u1, v1, u0, v1);
+                } else {
+                    uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+                }
             }
 
             indices.push(
@@ -217,10 +272,18 @@ export class EntityRenderer {
         return geometry;
     }
 
+    private disposeGroup(group: THREE.Group) {
+        group.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+                child.geometry.dispose();
+            }
+        });
+    }
+
     public clear() {
-        for (const mesh of this.meshes.values()) {
-            this.group.remove(mesh);
-            mesh.geometry.dispose();
+        for (const entityGroup of this.meshes.values()) {
+            this.group.remove(entityGroup);
+            this.disposeGroup(entityGroup);
         }
         this.meshes.clear();
     }

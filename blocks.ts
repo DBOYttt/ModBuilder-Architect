@@ -47,22 +47,22 @@ const unique = (name: string, group: string, category: string, top: string, side
 });
 
 // Helper for entities - stores relative texture path in 'side' for the loader to use
-// Entities are rendered as banner-style flat panels with front/back textures
+// Entities are rendered as 3D models with proper UV mapping from the entity texture
 const entity = (name: string, category: string, path: string) => ({
     id: nextId++,
     name,
     group: 'Entities',
     category,
     textures: {
-        top: `${name}_banner_top`,
-        bottom: `${name}_banner_bottom`,
+        top: `${name}_entity`,
+        bottom: `${name}_entity`,
         side: path, // Used as path payload for loader
-        front: `${name}_banner_front`,
-        back: `${name}_banner_back`,
-        left: `${name}_banner_front`,  // Use front for left edge
-        right: `${name}_banner_front`  // Use front for right edge
+        front: `${name}_entity`,
+        back: `${name}_entity`,
+        left: `${name}_entity`,
+        right: `${name}_entity`
     },
-    transparent: true // Banners have transparent parts
+    transparent: false
 });
 
 // --- GENERATORS ---
@@ -257,16 +257,50 @@ register(simple('Purpur Block', 'Building', 'End', 'purpur_block'));
 register(pillar('Purpur Pillar', 'Building', 'End', 'purpur_pillar', 'purpur_pillar_top'));
 
 // --- ENTITIES ---
+// Entity paths must match the actual texture file paths in the Faithful Pack
+// Format: [display_name, category, texture_path]
 
-const PASSIVE = ['cow', 'pig', 'sheep', 'chicken', 'horse', 'wolf', 'cat', 'rabbit', 'fox', 'bee', 'axolotl', 'frog', 'sniffer', 'armadillo'];
-const HOSTILE = ['zombie', 'skeleton', 'creeper', 'spider', 'enderman', 'blaze', 'ghast', 'wither_skeleton', 'piglin', 'hoglin', 'warden'];
-const VILLAGER = ['villager', 'wandering_trader', 'iron_golem'];
-const BOSS = ['ender_dragon', 'wither'];
+const ENTITY_DEFS: [string, string, string][] = [
+    // Passive mobs
+    ['Cow', 'Passive', 'cow/temperate_cow'],
+    ['Pig', 'Passive', 'pig/temperate_pig'],
+    ['Sheep', 'Passive', 'sheep/sheep'],
+    ['Chicken', 'Passive', 'chicken/chicken'],
+    ['Horse', 'Passive', 'horse/horse_brown'],
+    ['Wolf', 'Passive', 'wolf/wolf'],
+    ['Cat', 'Passive', 'cat/black'],
+    ['Rabbit', 'Passive', 'rabbit/brown'],
+    ['Fox', 'Passive', 'fox/fox'],
+    ['Bee', 'Passive', 'bee/bee'],
+    ['Axolotl', 'Passive', 'axolotl/axolotl_lucy'],
+    ['Frog', 'Passive', 'frog/temperate_frog'],
+    ['Sniffer', 'Passive', 'sniffer/sniffer'],
+    ['Armadillo', 'Passive', 'armadillo'],
 
-PASSIVE.forEach(e => register(entity(e.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()), 'Passive', e)));
-HOSTILE.forEach(e => register(entity(e.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()), 'Hostile', e)));
-VILLAGER.forEach(e => register(entity(e.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()), 'Villager', e)));
-BOSS.forEach(e => register(entity(e.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()), 'Boss', e)));
+    // Hostile mobs
+    ['Zombie', 'Hostile', 'zombie/zombie'],
+    ['Skeleton', 'Hostile', 'skeleton/skeleton'],
+    ['Creeper', 'Hostile', 'creeper/creeper'],
+    ['Spider', 'Hostile', 'spider/spider'],
+    ['Enderman', 'Hostile', 'enderman/enderman'],
+    ['Blaze', 'Hostile', 'blaze'],
+    ['Ghast', 'Hostile', 'ghast/ghast'],
+    ['Wither Skeleton', 'Hostile', 'skeleton/wither_skeleton'],
+    ['Piglin', 'Hostile', 'piglin/piglin'],
+    ['Hoglin', 'Hostile', 'hoglin/hoglin'],
+    ['Warden', 'Hostile', 'warden/warden'],
+
+    // Villagers
+    ['Villager', 'Villager', 'villager/villager'],
+    ['Wandering Trader', 'Villager', 'wandering_trader'],
+    ['Iron Golem', 'Villager', 'iron_golem/iron_golem'],
+
+    // Bosses
+    ['Ender Dragon', 'Boss', 'enderdragon/dragon'],
+    ['Wither', 'Boss', 'wither/wither'],
+];
+
+ENTITY_DEFS.forEach(([name, category, path]) => register(entity(name, category, path)));
 
 export const registerCustomBlock = (def: BlockDef) => {
     BLOCKS[def.id] = def;

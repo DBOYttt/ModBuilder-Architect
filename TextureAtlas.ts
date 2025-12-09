@@ -127,8 +127,8 @@ export class TextureAtlas {
 
     public async loadEntitySkin(name: string, path: string): Promise<void> {
         return new Promise((resolve) => {
-            // Check if already loaded (check banner front)
-            if (this.textures.has(`${name}_banner_front`)) {
+            // Check if already loaded
+            if (this.textures.has(`${name}_entity`)) {
                 resolve();
                 return;
             }
@@ -139,23 +139,8 @@ export class TextureAtlas {
             img.src = `${this.entityUrl}${path}.png`;
 
             img.onload = () => {
-                // For banner-style entities, create a combined front view texture
-                // Minecraft skin layout (64x64 for new format, 64x32 for old):
-                // - Head front: (8,8) to (16,16) - 8x8
-                // - Body front: (20,20) to (28,32) - 8x12
-                // - Right arm front: (44,20) to (48,32) - 4x12
-                // - Left arm front: (36,52) to (40,64) - 4x12 (new format) or mirrored right arm
-                // - Right leg front: (4,20) to (8,32) - 4x12
-                // - Left leg front: (20,52) to (24,64) - 4x12 (new format) or mirrored right leg
-
-                // Create a composite banner texture showing the full entity front
-                this.createBannerTexture(img, name, 'front');
-                this.createBannerTexture(img, name, 'back');
-
-                // Also create simple textures for top/bottom edges (use head top/bottom)
-                this.cropAndDraw(img, 8, 0, 8, 8, `${name}_banner_top`);
-                this.cropAndDraw(img, 16, 0, 8, 8, `${name}_banner_bottom`);
-
+                // Store the full entity texture for proper UV mapping
+                this.drawEntityTexture(img, `${name}_entity`);
                 resolve();
             };
 
@@ -166,91 +151,60 @@ export class TextureAtlas {
         });
     }
 
-    private createBannerTexture(source: HTMLImageElement, name: string, side: 'front' | 'back') {
-        // Create a canvas for the full body banner texture
-        // Banner aspect ratio: roughly 8 wide x 24 tall (head + body + legs)
-        const tempCanvas = document.createElement('canvas');
-        const bannerWidth = 16;  // Output width
-        const bannerHeight = 32; // Output height (2:1 aspect to match skin proportions)
-        tempCanvas.width = bannerWidth;
-        tempCanvas.height = bannerHeight;
-        const tCtx = tempCanvas.getContext('2d')!;
-        tCtx.imageSmoothingEnabled = false;
+    private drawEntityTexture(img: HTMLImageElement, id: string) {
+        if (img.width === 0 || img.height === 0) return;
 
-        // Clear with transparency
-        tCtx.clearRect(0, 0, bannerWidth, bannerHeight);
+        // For entity textures, we need to preserve their original aspect ratio
+        // Most entity textures are 64x32 or 64x64
+        // We'll allocate a larger space in the atlas to accommodate this
 
-        // Determine source coordinates based on front or back
-        // Skin texture coordinates (standard 64x64 skin):
-        const isFront = side === 'front';
+        const effectiveTileSize = this.tileSize + this.tilePadding;
 
-        // Scale factor from skin to banner
-        // We want to fit the entity in a 16x32 texture
-        // Entity is: 8 wide (head/body), 24 tall (8 head + 12 body + 12 legs if standing)
+        // Calculate how many tiles we need (most entity textures need 4x2 or 4x4 tiles)
+        const tilesWide = Math.ceil(img.width / this.tileSize);
+        const tilesHigh = Math.ceil(img.height / this.tileSize);
+        const totalWidth = tilesWide * effectiveTileSize;
+        const totalHeight = tilesHigh * effectiveTileSize;
 
-        // Head (8x8) -> centered at top
-        const headSx = isFront ? 8 : 24;
-        const headSy = 8;
-        tCtx.drawImage(source, headSx, headSy, 8, 8, 4, 0, 8, 8);
-
-        // Body (8x12) -> below head
-        const bodySx = isFront ? 20 : 32;
-        const bodySy = 20;
-        tCtx.drawImage(source, bodySx, bodySy, 8, 12, 4, 8, 8, 12);
-
-        // Right arm (4x12) -> left side of body from viewer's perspective
-        const rArmSx = isFront ? 44 : 52;
-        const rArmSy = 20;
-        tCtx.drawImage(source, rArmSx, rArmSy, 4, 12, 0, 8, 4, 12);
-
-        // Left arm (4x12) -> right side of body from viewer's perspective
-        // New skin format has left arm at (36,52), old format mirrors right arm
-        const lArmSx = isFront ? 36 : 44;
-        const lArmSy = 52;
-        // Check if new format (image height >= 64)
-        if (source.height >= 64) {
-            tCtx.drawImage(source, lArmSx, lArmSy, 4, 12, 12, 8, 4, 12);
-        } else {
-            // Old format - mirror right arm
-            tCtx.save();
-            tCtx.translate(16, 0);
-            tCtx.scale(-1, 1);
-            tCtx.drawImage(source, rArmSx, rArmSy, 4, 12, 0, 8, 4, 12);
-            tCtx.restore();
+        // Find space in atlas
+        if (this.nextX + totalWidth > this.atlasSize) {
+            this.nextX = 0;
+            this.nextY += effectiveTileSize * 4; // Skip ahead for larger textures
         }
 
-        // Right leg (4x12) -> below body, left side from viewer
-        const rLegSx = isFront ? 4 : 12;
-        const rLegSy = 20;
-        tCtx.drawImage(source, rLegSx, rLegSy, 4, 12, 4, 20, 4, 12);
-
-        // Left leg (4x12) -> below body, right side from viewer
-        const lLegSx = isFront ? 20 : 28;
-        const lLegSy = 52;
-        if (source.height >= 64) {
-            tCtx.drawImage(source, lLegSx, lLegSy, 4, 12, 8, 20, 4, 12);
-        } else {
-            // Old format - mirror right leg
-            tCtx.save();
-            tCtx.translate(16, 0);
-            tCtx.scale(-1, 1);
-            tCtx.drawImage(source, rLegSx, rLegSy, 4, 12, 4, 20, 4, 12);
-            tCtx.restore();
+        if (this.nextY + totalHeight > this.atlasSize) {
+            console.error('Texture Atlas full!');
+            return;
         }
 
-        // Convert to image and add to atlas
-        const img = new Image();
-        img.src = tempCanvas.toDataURL();
-        img.onload = () => {
-            this.drawToCanvas(img, `${name}_banner_${side}`);
-            tempCanvas.width = 0;
-            tempCanvas.height = 0;
+        const x = this.nextX;
+        const y = this.nextY;
+
+        // Draw the entity texture at its actual size
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.drawImage(img, 0, 0, img.width, img.height, x, y, img.width, img.height);
+
+        // Calculate UV coordinates for the entity texture
+        const u = x / this.atlasSize;
+        const v = 1 - ((y + img.height) / this.atlasSize);
+        const uSize = img.width / this.atlasSize;
+        const vSize = img.height / this.atlasSize;
+
+        const uv = {
+            u,
+            v,
+            uSize,
+            vSize,
+            size: Math.max(uSize, vSize)
         };
-        img.onerror = () => {
-            console.warn(`Failed to create banner texture for ${name}`);
-            tempCanvas.width = 0;
-            tempCanvas.height = 0;
-        };
+        this.textures.set(id, uv);
+
+        // Advance position
+        this.nextX += totalWidth;
+
+        this.texture.needsUpdate = true;
+        this.material.map = this.texture;
+        this.material.needsUpdate = true;
     }
 
     private cropAndDraw(source: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, id: string) {
