@@ -3,7 +3,13 @@ import * as THREE from 'three';
 import { textureAtlas } from './TextureAtlas';
 import { BLOCKS } from './blocks';
 import type { BlockDef } from './blocks';
-import { getEntityModel, EntityModel, ModelPart } from './EntityModels';
+import {
+    getEntityModel,
+    getEntityModelAsync,
+    loadEntityBedrockModel,
+    EntityModel,
+    ModelPart
+} from './EntityModels';
 
 export interface EntityInstance {
     x: number;
@@ -16,6 +22,7 @@ export interface EntityInstance {
 export class EntityRenderer {
     public group: THREE.Group;
     private meshes: Map<string, THREE.Group> = new Map();
+    private pendingModels = new Map<string, boolean>();
 
     constructor() {
         this.group = new THREE.Group();
@@ -42,10 +49,14 @@ export class EntityRenderer {
             if (!def || def.group !== 'Entities') continue;
 
             if (!entityGroup) {
+                // Create entity model synchronously (uses cached Bedrock model if available)
                 entityGroup = this.createEntityModel(def);
                 entityGroup.name = key;
                 this.meshes.set(key, entityGroup);
                 this.group.add(entityGroup);
+
+                // Try to load Bedrock model asynchronously and update if needed
+                this.loadBedrockModelAsync(def, entityGroup, key);
             }
 
             // Position entity (center on block)
@@ -66,16 +77,64 @@ export class EntityRenderer {
                 this.group.remove(entityGroup);
                 this.disposeGroup(entityGroup);
                 this.meshes.delete(key);
+                this.pendingModels.delete(key);
             }
+        }
+    }
+
+    private async loadBedrockModelAsync(def: BlockDef, entityGroup: THREE.Group, key: string) {
+        // Skip if already loading or loaded
+        if (this.pendingModels.get(key)) {
+            return;
+        }
+
+        this.pendingModels.set(key, true);
+
+        try {
+            // Try to load the Bedrock model
+            const bedrockModel = await loadEntityBedrockModel(def.name);
+
+            // Check if entity still exists and needs updating
+            if (!bedrockModel || !this.meshes.has(key)) {
+                return;
+            }
+
+            // Get current position and rotation before replacing
+            const position = entityGroup.position.clone();
+            const rotation = entityGroup.rotation.clone();
+            const scale = entityGroup.scale.clone();
+
+            // Recreate entity model with Bedrock data
+            const newEntityGroup = this.createEntityModelFromModel(bedrockModel, def.name);
+            newEntityGroup.name = key;
+            newEntityGroup.position.copy(position);
+            newEntityGroup.rotation.copy(rotation);
+            newEntityGroup.scale.copy(scale);
+
+            // Replace the old model
+            this.group.remove(entityGroup);
+            this.disposeGroup(entityGroup);
+            this.meshes.set(key, newEntityGroup);
+            this.group.add(newEntityGroup);
+
+            console.log(`Updated ${def.name} at ${key} with Bedrock model`);
+        } catch (error) {
+            console.warn(`Failed to load Bedrock model for ${def.name}:`, error);
+        } finally {
+            this.pendingModels.delete(key);
         }
     }
 
     private createEntityModel(def: BlockDef): THREE.Group {
         const model = getEntityModel(def.name);
+        return this.createEntityModelFromModel(model, def.name);
+    }
+
+    private createEntityModelFromModel(model: EntityModel, entityName: string): THREE.Group {
         const entityGroup = new THREE.Group();
 
         // Get the entity's texture name (stored in textures.side as path)
-        const textureName = def.name;
+        const textureName = entityName;
 
         for (const part of model.parts) {
             const partMesh = this.createModelPart(part, model, textureName);
@@ -107,7 +166,8 @@ export class EntityRenderer {
             part.size[0], part.size[1], part.size[2],
             model.textureWidth, model.textureHeight,
             part.mirror || false,
-            textureName
+            textureName,
+            part.perFaceUV
         );
 
         const mesh = new THREE.Mesh(geometry, textureAtlas.getMaterial());
@@ -116,19 +176,50 @@ export class EntityRenderer {
         mesh.name = part.name;
 
         // Position the part
+        // For Bedrock models, the origin is already the center position
+        // For legacy models, we need to adjust by height/2
+        // We'll just use origin directly as BedrockModelLoader already computes center
         mesh.position.set(
             part.origin[0],
-            part.origin[1] + height / 2,
+            part.origin[1],
             part.origin[2]
         );
 
         // Apply rotation if specified
         if (part.rotation) {
-            mesh.rotation.set(
-                THREE.MathUtils.degToRad(part.rotation[0]),
-                THREE.MathUtils.degToRad(part.rotation[1]),
-                THREE.MathUtils.degToRad(part.rotation[2])
-            );
+            // Handle pivot point for rotation
+            if (part.pivot) {
+                // Create a pivot group if we have a pivot point
+                const pivotGroup = new THREE.Group();
+                pivotGroup.position.set(
+                    part.pivot[0],
+                    part.pivot[1],
+                    part.pivot[2]
+                );
+
+                // Position mesh relative to pivot
+                mesh.position.set(
+                    part.origin[0] - part.pivot[0],
+                    part.origin[1] - part.pivot[1],
+                    part.origin[2] - part.pivot[2]
+                );
+
+                mesh.rotation.set(
+                    THREE.MathUtils.degToRad(part.rotation[0]),
+                    THREE.MathUtils.degToRad(part.rotation[1]),
+                    THREE.MathUtils.degToRad(part.rotation[2])
+                );
+
+                pivotGroup.add(mesh);
+                // Return the pivot group instead (cast to any to satisfy return type)
+                return pivotGroup as any;
+            } else {
+                mesh.rotation.set(
+                    THREE.MathUtils.degToRad(part.rotation[0]),
+                    THREE.MathUtils.degToRad(part.rotation[1]),
+                    THREE.MathUtils.degToRad(part.rotation[2])
+                );
+            }
         }
 
         return mesh;
@@ -140,7 +231,8 @@ export class EntityRenderer {
         pixelWidth: number, pixelHeight: number, pixelDepth: number,
         texWidth: number, texHeight: number,
         mirror: boolean,
-        textureName: string
+        textureName: string,
+        perFaceUV?: import('./EntityModels').PerFaceUV
     ): THREE.BufferGeometry {
         const positions: number[] = [];
         const normals: number[] = [];
@@ -170,50 +262,72 @@ export class EntityRenderer {
         // Right face: (uvX, uvY + depth) to (uvX + depth, uvY + depth + height)
         // Left face: (uvX + depth + width, uvY + depth) to (uvX + depth*2 + width, uvY + depth + height)
 
-        const faces = [
-            // Front (+Z)
+        // Default box UV layout faces
+        const defaultFaces = [
+            // Front (+Z) - corresponds to "south" in Minecraft
             {
                 verts: [[-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd]],
                 normal: [0, 0, 1],
                 uvStart: [uvX + pd, uvY + pd],
-                uvSize: [pw, ph]
+                uvSize: [pw, ph],
+                faceKey: 'south' as const
             },
-            // Back (-Z)
+            // Back (-Z) - corresponds to "north" in Minecraft
             {
                 verts: [[hw, -hh, -hd], [-hw, -hh, -hd], [-hw, hh, -hd], [hw, hh, -hd]],
                 normal: [0, 0, -1],
                 uvStart: [uvX + pd * 2 + pw, uvY + pd],
-                uvSize: [pw, ph]
+                uvSize: [pw, ph],
+                faceKey: 'north' as const
             },
-            // Top (+Y)
+            // Top (+Y) - corresponds to "up" in Minecraft
             {
                 verts: [[-hw, hh, -hd], [hw, hh, -hd], [hw, hh, hd], [-hw, hh, hd]],
                 normal: [0, 1, 0],
                 uvStart: [uvX + pd, uvY],
-                uvSize: [pw, pd]
+                uvSize: [pw, pd],
+                faceKey: 'up' as const
             },
-            // Bottom (-Y)
+            // Bottom (-Y) - corresponds to "down" in Minecraft
             {
                 verts: [[-hw, -hh, hd], [hw, -hh, hd], [hw, -hh, -hd], [-hw, -hh, -hd]],
                 normal: [0, -1, 0],
                 uvStart: [uvX + pd + pw, uvY],
-                uvSize: [pw, pd]
+                uvSize: [pw, pd],
+                faceKey: 'down' as const
             },
-            // Right (+X)
+            // Right (+X) - corresponds to "east" in Minecraft
             {
                 verts: [[hw, -hh, hd], [hw, -hh, -hd], [hw, hh, -hd], [hw, hh, hd]],
                 normal: [1, 0, 0],
                 uvStart: [uvX + pd + pw, uvY + pd],
-                uvSize: [pd, ph]
+                uvSize: [pd, ph],
+                faceKey: 'east' as const
             },
-            // Left (-X)
+            // Left (-X) - corresponds to "west" in Minecraft
             {
                 verts: [[-hw, -hh, -hd], [-hw, -hh, hd], [-hw, hh, hd], [-hw, hh, -hd]],
                 normal: [-1, 0, 0],
                 uvStart: [uvX, uvY + pd],
-                uvSize: [pd, ph]
+                uvSize: [pd, ph],
+                faceKey: 'west' as const
             },
         ];
+
+        // Override with per-face UV if provided
+        const faces = defaultFaces.map(face => {
+            if (perFaceUV && perFaceUV[face.faceKey]) {
+                const faceData = perFaceUV[face.faceKey]!;
+                return {
+                    ...face,
+                    uvStart: faceData.uv,
+                    uvSize: faceData.uv_size[0] !== 0 || faceData.uv_size[1] !== 0
+                        ? faceData.uv_size
+                        : face.uvSize // fallback to calculated size if uv_size is [0,0]
+                };
+            }
+            return face;
+        });
 
         let vertIndex = 0;
         for (const face of faces) {
@@ -225,12 +339,24 @@ export class EntityRenderer {
             // Calculate UVs
             if (atlasUV) {
                 // Convert texture pixel coordinates to atlas UV coordinates
-                const uStart = atlasUV.u + (face.uvStart[0] / tw) * atlasUV.uSize;
-                const vStart = atlasUV.v + (1 - (face.uvStart[1] + face.uvSize[1]) / th) * atlasUV.vSize;
-                const uEnd = atlasUV.u + ((face.uvStart[0] + face.uvSize[0]) / tw) * atlasUV.uSize;
-                const vEnd = atlasUV.v + (1 - face.uvStart[1] / th) * atlasUV.vSize;
+                // atlasUV.v is the bottom of the texture region in OpenGL coords
+                // atlasUV.vSize is the height going upward
 
-                const eps = 0.001;
+                // Map texture pixel coords to [0,1] range within texture
+                const localU0 = face.uvStart[0] / tw;
+                const localU1 = (face.uvStart[0] + face.uvSize[0]) / tw;
+                // Y axis is inverted: texture pixel 0 is at top, but atlas.v is at bottom
+                const localV0 = 1 - (face.uvStart[1] + face.uvSize[1]) / th;
+                const localV1 = 1 - face.uvStart[1] / th;
+
+                // Map to atlas coordinates
+                const uStart = atlasUV.u + localU0 * atlasUV.uSize;
+                const uEnd = atlasUV.u + localU1 * atlasUV.uSize;
+                const vStart = atlasUV.v + localV0 * atlasUV.vSize;
+                const vEnd = atlasUV.v + localV1 * atlasUV.vSize;
+
+                // Small epsilon to prevent texture bleeding
+                const eps = 0.0005;
                 const u0 = uStart + eps;
                 const u1 = uEnd - eps;
                 const v0 = vStart + eps;
@@ -290,5 +416,21 @@ export class EntityRenderer {
 
     public dispose() {
         this.clear();
+    }
+
+    /**
+     * Preload Bedrock models for common entities
+     * Call this during initialization to avoid loading delays
+     */
+    public async preloadCommonEntities(): Promise<void> {
+        const commonEntities = [
+            'Zombie', 'Skeleton', 'Creeper', 'Spider', 'Enderman',
+            'Pig', 'Cow', 'Sheep', 'Chicken', 'Wolf'
+        ];
+
+        console.log('Preloading common entity Bedrock models...');
+        const promises = commonEntities.map(name => loadEntityBedrockModel(name));
+        await Promise.allSettled(promises);
+        console.log('Finished preloading entity models');
     }
 }

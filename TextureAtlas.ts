@@ -22,8 +22,8 @@ export class TextureAtlas {
     private readonly atlasSize = 2048;
     private readonly tileSize = 16;
     private readonly tilePadding = 2; // Padding between tiles to prevent bleeding
-    private readonly baseUrl = 'https://raw.githubusercontent.com/Faithful-Pack/Default-Java/1.21.5/assets/minecraft/textures/';
-    private readonly entityUrl = 'https://raw.githubusercontent.com/Faithful-Pack/Default-Java/1.21.5/assets/minecraft/textures/entity/';
+    private readonly baseUrl = import.meta.env.BASE_URL + 'minecraft/textures/';
+    private readonly entityUrl = import.meta.env.BASE_URL + 'minecraft/textures/entity/';
     private loadedTextureNames: Set<string> = new Set();
     
     public isLoading: boolean = false;

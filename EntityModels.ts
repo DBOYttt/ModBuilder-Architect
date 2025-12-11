@@ -1,14 +1,27 @@
 // Entity model definitions matching Minecraft's actual entity models
 // All dimensions are in pixels (1 block = 16 pixels)
 
+import { loadBedrockModel } from './BedrockModelLoader';
+
+export interface PerFaceUV {
+    north?: { uv: [number, number]; uv_size: [number, number] };
+    south?: { uv: [number, number]; uv_size: [number, number] };
+    east?: { uv: [number, number]; uv_size: [number, number] };
+    west?: { uv: [number, number]; uv_size: [number, number] };
+    up?: { uv: [number, number]; uv_size: [number, number] };
+    down?: { uv: [number, number]; uv_size: [number, number] };
+}
+
 export interface ModelPart {
     name: string;
     // Position offset from entity origin (in blocks)
     origin: [number, number, number];
     // Size in pixels
     size: [number, number, number];
-    // UV coordinates on texture (top-left corner)
+    // UV coordinates on texture (top-left corner) - used for box UV mode
     uv: [number, number];
+    // Per-face UV mapping (overrides box UV mode if present)
+    perFaceUV?: PerFaceUV;
     // Optional rotation pivot and angles
     pivot?: [number, number, number];
     rotation?: [number, number, number];
@@ -677,6 +690,158 @@ export const BLAZE_MODEL: EntityModel = {
     ],
 };
 
+// Ender Dragon model (simplified but recognizable)
+export const ENDER_DRAGON_MODEL: EntityModel = {
+    name: 'ender_dragon',
+    textureWidth: 256,
+    textureHeight: 256,
+    scale: 2.5,
+    parts: [
+        // Head
+        {
+            name: 'head',
+            origin: [0, 1.0, -1.5],
+            size: [16, 16, 16],
+            uv: [176, 44],
+        },
+        // Jaw
+        {
+            name: 'jaw',
+            origin: [0, 0.75, -1.75],
+            size: [12, 4, 16],
+            uv: [176, 65],
+        },
+        // Neck
+        {
+            name: 'neck',
+            origin: [0, 0.875, -0.5],
+            size: [10, 10, 18],
+            uv: [112, 30],
+        },
+        // Body
+        {
+            name: 'body',
+            origin: [0, 0.75, 0.75],
+            size: [24, 16, 32],
+            uv: [0, 0],
+        },
+        // Left Wing
+        {
+            name: 'left_wing',
+            origin: [1.5, 1.0, 0],
+            size: [56, 4, 32],
+            uv: [0, 152],
+            rotation: [0, 0, -20],
+        },
+        // Right Wing
+        {
+            name: 'right_wing',
+            origin: [-1.5, 1.0, 0],
+            size: [56, 4, 32],
+            uv: [0, 152],
+            rotation: [0, 0, 20],
+            mirror: true,
+        },
+        // Tail segment 1
+        {
+            name: 'tail1',
+            origin: [0, 0.75, 1.75],
+            size: [8, 8, 16],
+            uv: [152, 88],
+        },
+        // Tail segment 2
+        {
+            name: 'tail2',
+            origin: [0, 0.75, 2.75],
+            size: [6, 6, 16],
+            uv: [180, 88],
+        },
+        // Tail segment 3
+        {
+            name: 'tail3',
+            origin: [0, 0.75, 3.75],
+            size: [4, 4, 16],
+            uv: [200, 88],
+        },
+        // Front Left Leg
+        {
+            name: 'front_left_leg',
+            origin: [0.75, 0, -0.5],
+            size: [8, 16, 8],
+            uv: [112, 0],
+        },
+        // Front Right Leg
+        {
+            name: 'front_right_leg',
+            origin: [-0.75, 0, -0.5],
+            size: [8, 16, 8],
+            uv: [112, 0],
+            mirror: true,
+        },
+        // Back Left Leg
+        {
+            name: 'back_left_leg',
+            origin: [0.75, 0, 1.0],
+            size: [8, 16, 8],
+            uv: [0, 0],
+        },
+        // Back Right Leg
+        {
+            name: 'back_right_leg',
+            origin: [-0.75, 0, 1.0],
+            size: [8, 16, 8],
+            uv: [0, 0],
+            mirror: true,
+        },
+    ],
+};
+
+// Wither model
+export const WITHER_MODEL: EntityModel = {
+    name: 'wither',
+    textureWidth: 64,
+    textureHeight: 64,
+    scale: 1.5,
+    parts: [
+        // Center Head
+        {
+            name: 'center_head',
+            origin: [0, 1.5, 0],
+            size: [8, 8, 8],
+            uv: [0, 16],
+        },
+        // Left Head
+        {
+            name: 'left_head',
+            origin: [0.625, 1.375, 0],
+            size: [6, 6, 6],
+            uv: [32, 16],
+        },
+        // Right Head
+        {
+            name: 'right_head',
+            origin: [-0.625, 1.375, 0],
+            size: [6, 6, 6],
+            uv: [32, 16],
+            mirror: true,
+        },
+        // Body (ribcage)
+        {
+            name: 'body',
+            origin: [0, 0.875, 0],
+            size: [12, 12, 4],
+            uv: [0, 32],
+        },
+        // Tail
+        {
+            name: 'tail',
+            origin: [0, 0.25, 0],
+            size: [4, 16, 4],
+            uv: [16, 48],
+        },
+    ],
+};
+
 // Map entity names to their models
 export const ENTITY_MODELS: Record<string, EntityModel> = {
     // Passive
@@ -694,31 +859,218 @@ export const ENTITY_MODELS: Record<string, EntityModel> = {
     'Frog': QUADRUPED_MODEL,
     'Sniffer': QUADRUPED_MODEL,
     'Armadillo': QUADRUPED_MODEL,
+    'Bat': BEE_MODEL,
+    'Parrot': CHICKEN_MODEL,
+    'Turtle': QUADRUPED_MODEL,
+    'Dolphin': QUADRUPED_MODEL,
+    'Squid': CUBE_MODEL,
+    'Glow Squid': CUBE_MODEL,
+    'Strider': QUADRUPED_MODEL,
+    'Allay': BEE_MODEL,
+    'Camel': QUADRUPED_MODEL,
 
     // Hostile
     'Zombie': HUMANOID_MODEL,
     'Skeleton': HUMANOID_MODEL,
     'Creeper': CREEPER_MODEL,
     'Spider': SPIDER_MODEL,
+    'Cave Spider': SPIDER_MODEL,
     'Enderman': ENDERMAN_MODEL,
     'Blaze': BLAZE_MODEL,
     'Ghast': GHAST_MODEL,
     'Wither Skeleton': HUMANOID_MODEL,
     'Piglin': HUMANOID_MODEL,
+    'Piglin Brute': HUMANOID_MODEL,
     'Hoglin': QUADRUPED_MODEL,
+    'Zoglin': QUADRUPED_MODEL,
     'Warden': HUMANOID_MODEL,
+    'Slime': CUBE_MODEL,
+    'Magma Cube': CUBE_MODEL,
+    'Phantom': BEE_MODEL,
+    'Drowned': HUMANOID_MODEL,
+    'Husk': HUMANOID_MODEL,
+    'Stray': HUMANOID_MODEL,
+    'Witch': VILLAGER_MODEL,
+    'Vindicator': HUMANOID_MODEL,
+    'Evoker': HUMANOID_MODEL,
+    'Pillager': HUMANOID_MODEL,
+    'Ravager': QUADRUPED_MODEL,
+    'Guardian': CUBE_MODEL,
+    'Elder Guardian': CUBE_MODEL,
+    'Shulker': CUBE_MODEL,
+    'Endermite': BEE_MODEL,
+    'Silverfish': BEE_MODEL,
+    'Breeze': HUMANOID_MODEL,
 
     // Villagers
     'Villager': VILLAGER_MODEL,
     'Wandering Trader': VILLAGER_MODEL,
     'Iron Golem': IRON_GOLEM_MODEL,
+    'Snow Golem': HUMANOID_MODEL,
 
     // Bosses
-    'Ender Dragon': CUBE_MODEL, // Simplified
-    'Wither': HUMANOID_MODEL,
+    'Ender Dragon': ENDER_DRAGON_MODEL,
+    'Wither': WITHER_MODEL,
 };
 
-// Get model for an entity, defaulting to humanoid
+// ============================================================================
+// Bedrock Model Integration
+// ============================================================================
+
+/**
+ * Mapping of entity names to their Bedrock .geo.json filenames
+ */
+const BEDROCK_MODEL_FILES: Record<string, string> = {
+    'Bee': 'bee.geo.json',
+    'Blaze': 'blaze.geo.json',
+    'Cat': 'cat.geo.json',
+    'Chicken': 'chicken.geo.json',
+    'Cow': 'cow.geo.json',
+    'Creeper': 'creeper.geo.json',
+    'Ender Dragon': 'ender_dragon.geo.json',
+    'Enderman': 'enderman.geo.json',
+    'Ghast': 'ghast.geo.json',
+    'Iron Golem': 'iron_golem.geo.json',
+    'Pig': 'pig.geo.json',
+    'Piglin': 'piglin.geo.json',
+    'Piglin Brute': 'piglin.geo.json',
+    'Sheep': 'sheep.geo.json',
+    'Skeleton': 'skeleton.geo.json',
+    'Slime': 'slime.geo.json',
+    'Spider': 'spider.geo.json',
+    'Villager': 'villager.geo.json',
+    'Warden': 'warden.geo.json',
+    'Wolf': 'wolf.geo.json',
+    'Zombie': 'zombie.geo.json',
+};
+
+/**
+ * Cache for loaded Bedrock models
+ */
+const bedrockModelCache = new Map<string, EntityModel>();
+
+/**
+ * Cache for load promises to avoid duplicate fetches
+ */
+const loadingPromises = new Map<string, Promise<EntityModel | null>>();
+
+// Clear caches on hot reload in development
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        bedrockModelCache.clear();
+        loadingPromises.clear();
+        console.log('[EntityModels] Caches cleared on HMR');
+    });
+}
+
+/**
+ * Base path for Bedrock entity models
+ */
+function getBedrockModelBasePath(): string {
+    return import.meta.env.BASE_URL + 'minecraft/models/entity/';
+}
+
+/**
+ * Asynchronously load a Bedrock model for an entity
+ * Returns null if the entity doesn't have a Bedrock model or if loading fails
+ */
+export async function loadEntityBedrockModel(entityName: string): Promise<EntityModel | null> {
+    // Check if already cached
+    if (bedrockModelCache.has(entityName)) {
+        return bedrockModelCache.get(entityName)!;
+    }
+
+    // Check if already loading
+    if (loadingPromises.has(entityName)) {
+        return loadingPromises.get(entityName)!;
+    }
+
+    // Check if entity has a Bedrock model
+    const fileName = BEDROCK_MODEL_FILES[entityName];
+    if (!fileName) {
+        return null;
+    }
+
+    // Start loading
+    const loadPromise = (async () => {
+        try {
+            const basePath = getBedrockModelBasePath();
+            const fullPath = basePath + fileName;
+
+            console.log(`Loading Bedrock model for ${entityName} from ${fullPath}`);
+            const model = await loadBedrockModel(fullPath);
+
+            // Cache the loaded model
+            bedrockModelCache.set(entityName, model);
+            console.log(`Successfully loaded Bedrock model for ${entityName}`);
+
+            return model;
+        } catch (error) {
+            console.warn(`Failed to load Bedrock model for ${entityName}:`, error);
+            return null;
+        } finally {
+            // Clean up loading promise
+            loadingPromises.delete(entityName);
+        }
+    })();
+
+    loadingPromises.set(entityName, loadPromise);
+    return loadPromise;
+}
+
+/**
+ * Pre-load multiple Bedrock models (useful for initialization)
+ */
+export async function preloadBedrockEntityModels(entityNames: string[]): Promise<void> {
+    const promises = entityNames
+        .filter(name => BEDROCK_MODEL_FILES[name])
+        .map(name => loadEntityBedrockModel(name));
+
+    await Promise.all(promises);
+}
+
+/**
+ * Get the synchronously available model for an entity
+ * Returns Bedrock model if already loaded, otherwise returns fallback model
+ * Use getEntityModelAsync for async loading
+ */
 export function getEntityModel(entityName: string): EntityModel {
+    // Check if Bedrock model is already cached
+    const bedrockModel = bedrockModelCache.get(entityName);
+    if (bedrockModel) {
+        return bedrockModel;
+    }
+
+    // Return fallback model
     return ENTITY_MODELS[entityName] || HUMANOID_MODEL;
+}
+
+/**
+ * Get entity model with async Bedrock loading
+ * Tries to load Bedrock model first, falls back to default models
+ */
+export async function getEntityModelAsync(entityName: string): Promise<EntityModel> {
+    // Try to load Bedrock model
+    const bedrockModel = await loadEntityBedrockModel(entityName);
+    if (bedrockModel) {
+        return bedrockModel;
+    }
+
+    // Fall back to static models
+    return ENTITY_MODELS[entityName] || HUMANOID_MODEL;
+}
+
+/**
+ * Check if an entity has a Bedrock model available
+ */
+export function hasBedrockModel(entityName: string): boolean {
+    return entityName in BEDROCK_MODEL_FILES;
+}
+
+/**
+ * Clear all cached Bedrock models
+ */
+export function clearBedrockModelCache(): void {
+    bedrockModelCache.clear();
+    loadingPromises.clear();
 }
