@@ -293,9 +293,14 @@ function hasPerFaceUV(cube: BedrockCube): boolean {
 
 /**
  * Build a map of bones with their local transforms
+ * Also builds a case-insensitive lookup map for parent bone resolution
  */
-function buildBoneMap(bones: BedrockBone[]): Map<string, BoneHierarchy> {
+function buildBoneMap(bones: BedrockBone[]): {
+    boneMap: Map<string, BoneHierarchy>;
+    caseInsensitiveMap: Map<string, string>;
+} {
     const boneMap = new Map<string, BoneHierarchy>();
+    const caseInsensitiveMap = new Map<string, string>(); // lowercase -> original name
 
     for (const bone of bones) {
         const transform: BoneTransform = {
@@ -310,15 +315,35 @@ function buildBoneMap(bones: BedrockBone[]): Map<string, BoneHierarchy> {
             transform,
             worldTransform: { ...transform } // Will be computed later
         });
+
+        // Store lowercase mapping for case-insensitive lookup
+        caseInsensitiveMap.set(bone.name.toLowerCase(), bone.name);
     }
 
-    return boneMap;
+    return { boneMap, caseInsensitiveMap };
 }
 
 /**
  * Calculate world transforms for all bones by traversing the hierarchy
  */
-function calculateWorldTransforms(boneMap: Map<string, BoneHierarchy>): void {
+function calculateWorldTransforms(
+    boneMap: Map<string, BoneHierarchy>,
+    caseInsensitiveMap: Map<string, string>
+): void {
+    // Helper to resolve parent bone name with case-insensitive fallback
+    function resolveParentName(parentName: string): string | null {
+        // Try exact match first
+        if (boneMap.has(parentName)) {
+            return parentName;
+        }
+        // Try case-insensitive match
+        const normalizedName = caseInsensitiveMap.get(parentName.toLowerCase());
+        if (normalizedName && boneMap.has(normalizedName)) {
+            return normalizedName;
+        }
+        return null;
+    }
+
     // Helper to compute world transform recursively
     function computeWorldTransform(boneName: string, visited: Set<string>): BoneTransform {
         if (visited.has(boneName)) {
@@ -341,14 +366,16 @@ function calculateWorldTransforms(boneMap: Map<string, BoneHierarchy>): void {
         }
 
         // Get parent's world transform (compute recursively if needed)
-        const parentHierarchy = boneMap.get(bone.parent);
-        if (!parentHierarchy) {
+        // Use case-insensitive lookup for parent bone
+        const resolvedParentName = resolveParentName(bone.parent);
+        if (!resolvedParentName) {
             console.warn(`Parent bone not found: ${bone.parent}, treating as root`);
             boneHierarchy.worldTransform = { ...localTransform };
             return boneHierarchy.worldTransform;
         }
 
-        const parentWorld = computeWorldTransform(bone.parent, visited);
+        const parentHierarchy = boneMap.get(resolvedParentName)!;
+        const parentWorld = computeWorldTransform(resolvedParentName, visited);
 
         // Transform child's pivot point from parent space to world space
         // The child's pivot is already in world coordinates, but we need to account
@@ -532,21 +559,27 @@ export function translateBedrockModel(json: any): EntityModel {
         throw new Error('No bones found in Bedrock model');
     }
 
-    // Filter out bones with neverRender: true
+    // Count renderable bones for logging (bones that will actually be rendered)
     const renderableBones = geometry.bones.filter((bone: any) => !bone.neverRender);
     console.log(`[BedrockModelLoader] Renderable bones: ${renderableBones.length}`);
 
-    // Build bone hierarchy
-    const boneMap = buildBoneMap(renderableBones);
-    calculateWorldTransforms(boneMap);
+    // Build bone hierarchy from ALL bones (including neverRender bones)
+    // This is important because renderable bones may have neverRender bones as parents
+    const { boneMap, caseInsensitiveMap } = buildBoneMap(geometry.bones);
+    calculateWorldTransforms(boneMap, caseInsensitiveMap);
 
-    // Convert all cubes to ModelParts
+    // Convert cubes to ModelParts (only from renderable bones)
     const parts: ModelPart[] = [];
     let cubeCounter = 0;
 
     for (const [boneName, boneHierarchy] of boneMap) {
         const bone = boneHierarchy.bone;
         const worldTransform = boneHierarchy.worldTransform;
+
+        // Skip bones marked as neverRender (they're only for transform hierarchy)
+        if ((bone as any).neverRender) {
+            continue;
+        }
 
         if (!bone.cubes || bone.cubes.length === 0) {
             continue;
