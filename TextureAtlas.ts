@@ -129,10 +129,12 @@ export class TextureAtlas {
         return new Promise((resolve) => {
             // Check if already loaded
             if (this.textures.has(`${name}_entity`)) {
+                console.log(`[TextureAtlas] Entity skin already loaded: ${name}`);
                 resolve();
                 return;
             }
             this.loadedTextureNames.add(name);
+            console.log(`[TextureAtlas] Loading entity skin: ${name} from ${path}`);
 
             const img = new Image();
             img.crossOrigin = 'anonymous';
@@ -140,6 +142,7 @@ export class TextureAtlas {
 
             img.onload = () => {
                 // Store the full entity texture for proper UV mapping
+                console.log(`[TextureAtlas] Entity skin loaded successfully: ${name} (${img.width}x${img.height})`);
                 this.drawEntityTexture(img, `${name}_entity`);
                 resolve();
             };

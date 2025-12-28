@@ -91,6 +91,10 @@ export class EntityRenderer {
         this.pendingModels.set(key, true);
 
         try {
+            // Ensure entity texture is loaded first
+            const texturePath = def.textures.side;
+            await textureAtlas.loadEntitySkin(def.name, texturePath);
+
             // Try to load the Bedrock model
             const bedrockModel = await loadEntityBedrockModel(def.name);
 
