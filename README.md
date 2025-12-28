@@ -10,7 +10,7 @@ A powerful 3D voxel building tool for creating Minecraft-style block structures.
 - **3D Voxel Editor** - Place, remove, and manipulate blocks in a 3D environment
 - **Block Library** - Extensive collection of Minecraft-style blocks organized by category
 - **Custom Texture Import** - Import textures from mod zips and resource packs
-- **Entity Support** - Add mob heads and entity models to your builds
+- **Entity Support** - Add mob heads and entity models to your builds ⚠️ *In Development*
 - **Multiple Views** - Isometric, top-down, front, and side views
 - **Layer System** - Work on specific layers with visibility controls
 - **Project Management** - Save, load, and export your creations
@@ -57,6 +57,17 @@ The importer automatically:
 - Detects and groups related textures (top, side, bottom faces)
 - Handles namespaced textures from mods
 - Preserves texture organization by mod
+
+## ⚠️ Known Issues
+
+### Entity Support (In Development)
+The entity/mob rendering feature is still under active development and has known issues:
+- Some entity models may not display correctly
+- Texture mapping issues on certain mobs (e.g., wing textures, complex models)
+- Some entities use fallback/placeholder models
+- Large entities like Ender Dragon and Wither may have visual artifacts
+
+This feature is experimental and improvements are ongoing.
 
 ## Controls
 
