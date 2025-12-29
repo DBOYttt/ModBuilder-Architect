@@ -559,53 +559,53 @@ export const IRON_GOLEM_MODEL: EntityModel = {
     ],
 };
 
-// Enderman model (tall humanoid)
+// Enderman model (tall humanoid - 3 blocks tall)
 export const ENDERMAN_MODEL: EntityModel = {
     name: 'enderman',
     textureWidth: 64,
     textureHeight: 32,
-    scale: 1.2,
+    scale: 1,
     parts: [
-        // Head
+        // Head (at top, ~2.75 blocks up)
         {
             name: 'head',
-            origin: [0, 2.625, 0],
+            origin: [0, 2.75, 0],
             size: [8, 8, 8],
             uv: [0, 0],
         },
-        // Body
+        // Body (center at ~2.25 blocks, 12 pixels = 0.75 blocks tall)
         {
             name: 'body',
-            origin: [0, 1.5, 0],
+            origin: [0, 2.125, 0],
             size: [8, 12, 4],
             uv: [32, 16],
         },
-        // Right Arm
+        // Right Arm (starts at shoulder height ~2.5, hangs down 30 pixels)
         {
             name: 'right_arm',
-            origin: [-0.375, 1.5, 0],
+            origin: [-0.375, 1.5625, 0],
             size: [2, 30, 2],
             uv: [56, 0],
         },
         // Left Arm
         {
             name: 'left_arm',
-            origin: [0.375, 1.5, 0],
+            origin: [0.375, 1.5625, 0],
             size: [2, 30, 2],
             uv: [56, 0],
             mirror: true,
         },
-        // Right Leg
+        // Right Leg (30 pixels = 1.875 blocks, starts at ground)
         {
             name: 'right_leg',
-            origin: [-0.125, 0, 0],
+            origin: [-0.125, 0.9375, 0],
             size: [2, 30, 2],
             uv: [56, 0],
         },
         // Left Leg
         {
             name: 'left_leg',
-            origin: [0.125, 0, 0],
+            origin: [0.125, 0.9375, 0],
             size: [2, 30, 2],
             uv: [56, 0],
             mirror: true,
@@ -1009,7 +1009,7 @@ const ENTITY_SCALES: Record<string, number> = {
     'Pig': 0.9,
     'Sheep': 0.9,
     'Blaze': 0.9,
-    'Enderman': 1.2,
+    'Hoglin': 1.1,
     'Iron Golem': 1.4,
     'Wither': 1.5,
     'Ghast': 2,
