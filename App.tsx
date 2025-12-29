@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import Scene from './components/Scene';
 import {
     Box, Trash2, Pipette, Sun, Moon, Search,
@@ -50,6 +50,9 @@ const App: React.FC = () => {
   // Sidebar visibility for responsive layout
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
   const [showMaterialsPanel, setShowMaterialsPanel] = useState(false);
+
+  // Tooltip state for block palette
+  const [hoveredBlock, setHoveredBlock] = useState<{ name: string; x: number; y: number } | null>(null);
 
   const [blocksVersion, setBlocksVersion] = useState(0);
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -328,7 +331,16 @@ const App: React.FC = () => {
                                       <h4 className={`text-xs font-medium uppercase tracking-wider mb-2 pl-2 ${isDay ? "text-gray-400" : "text-slate-500"}`}>{category}</h4>
                                       <div className="grid grid-cols-5 gap-1.5 px-2">
                                           {groupedBlocks[group][category].map(block => (
-                                              <button key={block.id} onClick={() => { setSelectedBlockId(block.id); setTool('place'); }} title={block.name} className={`aspect-square rounded-md p-1 border-2 transition-all group relative ${selectedBlockId === block.id ? "border-blue-500 bg-blue-500/10" : "border-transparent hover:bg-black/5 dark:hover:bg-white/5"}`}>
+                                              <button
+                                                key={block.id}
+                                                onClick={() => { setSelectedBlockId(block.id); setTool('place'); }}
+                                                onMouseEnter={(e) => {
+                                                  const rect = e.currentTarget.getBoundingClientRect();
+                                                  setHoveredBlock({ name: block.name, x: rect.left + rect.width / 2, y: rect.top });
+                                                }}
+                                                onMouseLeave={() => setHoveredBlock(null)}
+                                                className={`aspect-square rounded-md p-1 border-2 transition-all group relative ${selectedBlockId === block.id ? "border-blue-500 bg-blue-500/10" : "border-transparent hover:bg-black/5 dark:hover:bg-white/5"}`}
+                                              >
                                                   <div className="w-full h-full overflow-hidden rounded-sm">
                                                     <img src={getTextureUrl(block.textures.side || block.textures.top)} alt={block.name} className={`w-full h-full object-contain pixelated ${block.group === 'Entities' ? 'scale-150' : ''}`} loading="lazy" />
                                                   </div>
@@ -445,6 +457,18 @@ const App: React.FC = () => {
                 ))}
             </div>
             {sortedMaterials.length > 0 && <div className={`p-2 border-t text-xs text-center ${isDay ? "text-gray-400 border-gray-200" : "text-slate-500 border-slate-700"}`}>Total: {Array.from(materialCounts.values()).reduce((a, b) => a + b, 0)} blocks</div>}
+        </div>
+      )}
+
+      {/* Block/Entity Tooltip */}
+      {hoveredBlock && (
+        <div
+          className={`fixed z-[100] px-2 py-1 text-xs font-medium rounded shadow-lg pointer-events-none whitespace-nowrap transform -translate-x-1/2 -translate-y-full ${
+            isDay ? "bg-gray-800 text-white" : "bg-slate-700 text-white"
+          }`}
+          style={{ left: hoveredBlock.x, top: hoveredBlock.y - 4 }}
+        >
+          {hoveredBlock.name}
         </div>
       )}
     </div>
