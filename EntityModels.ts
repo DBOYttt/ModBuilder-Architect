@@ -108,13 +108,13 @@ export const QUADRUPED_MODEL: EntityModel = {
             size: [8, 8, 8],
             uv: [0, 0],
         },
-        // Body
+        // Body (rotated to be horizontal - negative X rotation points toward head)
         {
             name: 'body',
             origin: [0, 0.6875, 0],
             size: [8, 16, 10],
             uv: [28, 8],
-            rotation: [90, 0, 0],
+            rotation: [-90, 0, 0],
         },
         // Front Right Leg
         {
@@ -178,21 +178,21 @@ export const HOGLIN_MODEL: EntityModel = {
             uv: [0, 25],
             mirror: true,
         },
-        // Body
+        // Body (rotated horizontal)
         {
             name: 'body',
             origin: [0, 0.8125, 0.25],
             size: [16, 14, 26],
             uv: [0, 30],
-            rotation: [90, 0, 0],
+            rotation: [-90, 0, 0],
         },
-        // Mane
+        // Mane (rotated horizontal)
         {
             name: 'mane',
             origin: [0, 1.125, -0.125],
             size: [10, 10, 15],
             uv: [84, 0],
-            rotation: [90, 0, 0],
+            rotation: [-90, 0, 0],
         },
         // Front Right Leg
         {
@@ -458,13 +458,13 @@ export const WOLF_MODEL: EntityModel = {
             size: [3, 3, 4],
             uv: [0, 10],
         },
-        // Body
+        // Body (rotated horizontal)
         {
             name: 'body',
             origin: [0, 0.5, 0.125],
             size: [6, 14, 8],
             uv: [18, 14],
-            rotation: [90, 0, 0],
+            rotation: [-90, 0, 0],
         },
         // Front Right Leg
         {
@@ -1032,32 +1032,32 @@ const BEDROCK_MODEL_FILES: Record<string, string> = {
     'Breeze': 'breeze.geo.json',
     'Cat': 'cat.geo.json',
     'Chicken': 'chicken.geo.json',
-    'Cow': 'cow.geo.json',
+    // 'Cow' excluded - body rotation issues, using fallback
     'Creeper': 'creeper.geo.json',
     'Elder Guardian': 'elder_guardian.geo.json',
-    'Ender Dragon': 'ender_dragon.geo.json',
+    // 'Ender Dragon' excluded - extreme complexity, deep hierarchy issues
     // 'Enderman' excluded - Bedrock model has hat layer positioning issues
     'Evoker': 'evoker.geo.json',
     'Ghast': 'ghast.geo.json',
     'Guardian': 'guardian.geo.json',
     'Iron Golem': 'iron_golem.geo.json',
     'Magma Cube': 'magma_cube.geo.json',
-    'Pig': 'pig.geo.json',
+    // 'Pig' excluded - body rotation issues, using fallback
     'Piglin': 'piglin.geo.json',
     'Piglin Brute': 'piglin.geo.json',
     'Pillager': 'pillager.geo.json',
-    'Sheep': 'sheep.geo.json',
+    // 'Sheep' excluded - body rotation issues, using fallback
     'Shulker': 'shulker.geo.json',
     'Silverfish': 'silverfish.geo.json',
-    'Skeleton': 'skeleton.geo.json',
+    // 'Skeleton' excluded - hat/waist bone issues like Zombie
     'Slime': 'slime.geo.json',
     'Spider': 'spider.geo.json',
     'Villager': 'villager.geo.json',
     'Vindicator': 'vindicator.geo.json',
-    'Warden': 'warden.geo.json',
-    'Witch': 'witch.geo.json',
-    'Wither': 'wither.geo.json',
-    'Wither Skeleton': 'skeleton.geo.json',
+    // 'Warden' excluded - 2D geometry planes (zero-depth cubes)
+    // 'Witch' excluded - cascading hat rotations + extreme inflation
+    // 'Wither' excluded - multi-head complexity issues
+    // 'Wither Skeleton' excluded - inherits skeleton issues
     'Wolf': 'wolf.geo.json',
     // 'Zombie' excluded - Bedrock model has missing limb issues
 };
