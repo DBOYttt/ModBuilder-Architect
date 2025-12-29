@@ -1059,7 +1059,7 @@ const BEDROCK_MODEL_FILES: Record<string, string> = {
     'Wither': 'wither.geo.json',
     'Wither Skeleton': 'skeleton.geo.json',
     'Wolf': 'wolf.geo.json',
-    'Zombie': 'zombie.geo.json',
+    // 'Zombie' excluded - Bedrock model has missing limb issues
 };
 
 /**
