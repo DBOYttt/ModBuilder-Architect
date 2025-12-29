@@ -1036,7 +1036,7 @@ const BEDROCK_MODEL_FILES: Record<string, string> = {
     'Creeper': 'creeper.geo.json',
     'Elder Guardian': 'elder_guardian.geo.json',
     'Ender Dragon': 'ender_dragon.geo.json',
-    'Enderman': 'enderman.geo.json',
+    // 'Enderman' excluded - Bedrock model has hat layer positioning issues
     'Evoker': 'evoker.geo.json',
     'Ghast': 'ghast.geo.json',
     'Guardian': 'guardian.geo.json',
