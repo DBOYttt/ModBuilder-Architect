@@ -11,61 +11,76 @@ npm run build    # Production build to dist/
 npm run preview  # Preview production build
 ```
 
-No test framework is configured. No linting is configured.
+No test framework or linting is configured.
+
+### Asset Scripts
+
+```bash
+node scripts/generate-blocks.cjs         # Regenerate blocks.ts from textures
+node scripts/download-assets.cjs         # Download block textures
+node scripts/download-entity-models.cjs  # Download entity models
+```
 
 ## Architecture Overview
 
-ModBuilder Architect is a 3D voxel building tool for creating Minecraft-style block structures. It uses React 19 with Three.js (via React Three Fiber) for 3D rendering.
+ModBuilder Architect is a 3D voxel building tool for creating Minecraft-style block structures. Uses React 19 with Three.js (via React Three Fiber) for 3D rendering.
 
 ### Core Systems
 
-**VoxelWorld.ts** - Chunk-based voxel storage using `Uint16Array` for block IDs and `Uint8Array` for metadata (rotation). Chunks are 16x16x16 blocks. Key features:
-- Batching system (`beginBatch()`/`endBatch()`) for bulk operations
+**VoxelWorld.ts** - Chunk-based voxel storage using `Uint16Array` for block IDs and `Uint8Array` for metadata (rotation). Chunks are 16x16x16 blocks.
+- Batching system (`beginBatch()`/`endBatch()`) for bulk operations - always use for multi-block changes
 - Greedy mesh generation with face culling
-- Event system for change notifications
+- Event system (`addChangeListener()`) for change notifications
+- Material counting via `blockCounts` Map
 
-**TextureAtlas.ts** - Dynamic 2048x2048 texture atlas that loads textures on-demand:
-- Lazy loading by category when block groups are expanded in UI
-- Singleton instance `textureAtlas` used throughout the app
-- Handles both regular blocks and entity skins with different UV layouts
-- Textures fetched from bundled assets at `public/minecraft/textures/`
+**TextureAtlas.ts** - Dynamic 2048x2048 texture atlas with lazy loading:
+- Singleton `textureAtlas` instance used app-wide
+- `loadCategoryTextures(category)` for on-demand loading when UI expands block groups
+- Different UV handling for blocks vs entity skins
+- Textures at `public/minecraft/textures/`
 
 **EntityRenderer.ts** - Renders 3D entity models (mob heads) separately from chunk meshes:
 - Loads Bedrock format models via `EntityModels.ts` and `BedrockModelLoader.ts`
-- Uses UV mapping based on Minecraft's box UV layout
-- Positioned at block centers with rotation support
+- **Known issues**: Some entities have texture mapping problems, complex models (dragon, wither) may have artifacts
 
-**blocks.ts** - Block definitions with helper functions:
-- `simple()` - Uniform texture on all sides
-- `pillar()` - Different top/bottom vs sides
-- `unique()` - Different texture per face
-- `directional()` - Rotatable blocks with front face
+**blocks.ts** - Block definitions using helper functions:
+- `simple(id, name, texture)` - Uniform texture all sides
+- `pillar(id, name, topTex, sideTex)` - Different top/bottom vs sides
+- `unique(id, name, textures)` - Different texture per face
+- `directional(id, name, textures)` - Rotatable blocks with front face
 - Custom blocks stored in IndexedDB via `Storage.ts`
 
-### React Component Structure
+### React Components
 
-**App.tsx** - Main component managing:
-- Keyboard shortcuts (Ctrl+Z undo, R rotate, PageUp/Down layers)
-- Auto-save every 30 seconds to localStorage
-- Block category expansion triggers texture preloading
+**App.tsx** - Main state management, keyboard shortcuts, auto-save (30s to localStorage)
 
-**Scene.tsx** - Three.js canvas setup with:
-- `WorldRenderer` - Adds voxel meshes and entity renderer to scene
-- `CameraAnimator` - Smooth camera transitions between views
-- OrbitControls locked except in 'move' tool mode
+**Scene.tsx** - Three.js canvas with `WorldRenderer` and `CameraAnimator`. OrbitControls locked except in 'move' tool mode.
 
-**BlockInteraction.tsx** - Mouse/raycast interaction handling:
+**BlockInteraction.tsx** - Raycast interaction:
 - Left click: place/remove/fill depending on tool
 - Right click: quick remove
 - Alt+Right click: context menu
-- Fill tool uses drag selection with batched block placement
+- Fill tool uses drag selection with batched placement
+
+### Key Keyboard Shortcuts
+
+- `Ctrl/Cmd+Z`: Undo | `Shift+Ctrl/Cmd+Z` or `Y`: Redo
+- `R`: Rotate block before placing
+- `PageUp/PageDown`: Navigate layers | `Home`: Show all layers
 
 ### State Management
 
-- `HistoryManager.ts` - Undo/redo stack (100 max) storing block changes
-- Layer visibility controlled by `currentLayer` + `showAllLayers` state
-- Material counts tracked in `VoxelWorld.blockCounts` Map
+- `HistoryManager.ts` - Undo/redo stack (100 max) storing block change deltas
+- Layer visibility: `currentLayer` + `showAllLayers` state in App.tsx
+- `ProjectManager.ts` - Save/load to localStorage, CSV export of material counts
+
+### Types
+
+Core types in `types.ts`:
+- `ToolType`: 'place' | 'remove' | 'eyedropper' | 'fill' | 'select' | 'move'
+- `ViewType`: 'iso' | 'top' | 'front' | 'side'
+- `BlockType`: id, name, texture/textures, transparent flag
 
 ### Path Aliases
 
-`@/*` maps to the project root (configured in tsconfig.json).
+`@/*` maps to project root (tsconfig.json).

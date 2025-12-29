@@ -918,6 +918,34 @@ export const ENTITY_MODELS: Record<string, EntityModel> = {
 // ============================================================================
 
 /**
+ * Mapping of entity names to their expected scale factors
+ * These match the fallback model scales for consistency
+ */
+const ENTITY_SCALES: Record<string, number> = {
+    'Bee': 0.5,
+    'Chicken': 0.6,
+    'Wolf': 0.8,
+    'Cat': 0.8,
+    'Fox': 0.8,
+    'Cow': 0.9,
+    'Pig': 0.9,
+    'Sheep': 0.9,
+    'Blaze': 0.9,
+    'Enderman': 1.2,
+    'Iron Golem': 1.4,
+    'Wither': 1.5,
+    'Ghast': 2,
+    'Ender Dragon': 2.5,
+};
+
+/**
+ * Get the scale factor for an entity
+ */
+export function getEntityScale(entityName: string): number {
+    return ENTITY_SCALES[entityName] ?? 1.0;
+}
+
+/**
  * Mapping of entity names to their Bedrock .geo.json filenames
  */
 const BEDROCK_MODEL_FILES: Record<string, string> = {
@@ -1012,9 +1040,13 @@ export async function loadEntityBedrockModel(entityName: string): Promise<Entity
             console.log(`Loading Bedrock model for ${entityName} from ${fullPath}`);
             const model = await loadBedrockModel(fullPath);
 
+            // Apply entity-specific scale from our scale map
+            // This ensures Bedrock models match the expected sizes of fallback models
+            model.scale = getEntityScale(entityName);
+
             // Cache the loaded model
             bedrockModelCache.set(entityName, model);
-            console.log(`Successfully loaded Bedrock model for ${entityName}`);
+            console.log(`Successfully loaded Bedrock model for ${entityName} with scale ${model.scale}`);
 
             return model;
         } catch (error) {

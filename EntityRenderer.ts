@@ -193,31 +193,35 @@ export class EntityRenderer {
         if (part.rotation) {
             // Handle pivot point for rotation
             if (part.pivot) {
-                // Create a pivot group if we have a pivot point
+                // Create a pivot group for proper rotation around pivot point
                 const pivotGroup = new THREE.Group();
+
+                // Position the pivot group at the pivot point
                 pivotGroup.position.set(
                     part.pivot[0],
                     part.pivot[1],
                     part.pivot[2]
                 );
 
-                // Position mesh relative to pivot
+                // Position mesh relative to pivot (offset from pivot)
                 mesh.position.set(
                     part.origin[0] - part.pivot[0],
                     part.origin[1] - part.pivot[1],
                     part.origin[2] - part.pivot[2]
                 );
 
-                mesh.rotation.set(
+                // Apply rotation to the pivot group, not the mesh
+                // This ensures rotation happens around the pivot point
+                pivotGroup.rotation.set(
                     THREE.MathUtils.degToRad(part.rotation[0]),
                     THREE.MathUtils.degToRad(part.rotation[1]),
                     THREE.MathUtils.degToRad(part.rotation[2])
                 );
 
                 pivotGroup.add(mesh);
-                // Return the pivot group instead (cast to any to satisfy return type)
-                return pivotGroup as any;
+                return pivotGroup as unknown as THREE.Mesh;
             } else {
+                // No pivot - rotate around mesh center
                 mesh.rotation.set(
                     THREE.MathUtils.degToRad(part.rotation[0]),
                     THREE.MathUtils.degToRad(part.rotation[1]),
@@ -359,8 +363,9 @@ export class EntityRenderer {
                 const vStart = atlasUV.v + localV0 * atlasUV.vSize;
                 const vEnd = atlasUV.v + localV1 * atlasUV.vSize;
 
-                // Small epsilon to prevent texture bleeding
-                const eps = 0.0005;
+                // Epsilon to prevent texture bleeding (0.5 pixels in atlas space)
+                // Using same value as block textures for consistency
+                const eps = 0.5 / 2048;
                 const u0 = uStart + eps;
                 const u1 = uEnd - eps;
                 const v0 = vStart + eps;

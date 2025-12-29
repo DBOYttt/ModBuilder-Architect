@@ -154,26 +154,30 @@ export class TextureAtlas {
         });
     }
 
+    // Track the maximum height used in the current row for proper row advancement
+    private currentRowMaxHeight: number = 0;
+
     private drawEntityTexture(img: HTMLImageElement, id: string) {
         if (img.width === 0 || img.height === 0) return;
 
-        // For entity textures, we need to preserve their original aspect ratio
+        // For entity textures, preserve their original size
         // Most entity textures are 64x32 or 64x64
-        // We'll allocate a larger space in the atlas to accommodate this
+        const padding = this.tilePadding;
 
-        const effectiveTileSize = this.tileSize + this.tilePadding;
+        // Calculate required space including padding
+        const totalWidth = img.width + padding;
+        const totalHeight = img.height + padding;
 
-        // Calculate how many tiles we need (most entity textures need 4x2 or 4x4 tiles)
-        const tilesWide = Math.ceil(img.width / this.tileSize);
-        const tilesHigh = Math.ceil(img.height / this.tileSize);
-        const totalWidth = tilesWide * effectiveTileSize;
-        const totalHeight = tilesHigh * effectiveTileSize;
-
-        // Find space in atlas
+        // Find space in atlas - wrap to next row if needed
         if (this.nextX + totalWidth > this.atlasSize) {
             this.nextX = 0;
-            this.nextY += effectiveTileSize * 4; // Skip ahead for larger textures
+            // Advance by the actual max height used in the current row
+            this.nextY += this.currentRowMaxHeight > 0 ? this.currentRowMaxHeight : totalHeight;
+            this.currentRowMaxHeight = 0;
         }
+
+        // Track max height in current row for proper row advancement
+        this.currentRowMaxHeight = Math.max(this.currentRowMaxHeight, totalHeight);
 
         if (this.nextY + totalHeight > this.atlasSize) {
             console.error('Texture Atlas full!');
