@@ -149,6 +149,84 @@ export const QUADRUPED_MODEL: EntityModel = {
     ],
 };
 
+// Hoglin model (large pig-like Nether creature)
+export const HOGLIN_MODEL: EntityModel = {
+    name: 'hoglin',
+    textureWidth: 128,
+    textureHeight: 64,
+    scale: 1.1,
+    parts: [
+        // Head
+        {
+            name: 'head',
+            origin: [0, 0.875, -0.625],
+            size: [14, 6, 19],
+            uv: [0, 0],
+        },
+        // Right Ear
+        {
+            name: 'right_ear',
+            origin: [-0.5, 1.0625, -0.375],
+            size: [6, 1, 4],
+            uv: [0, 25],
+        },
+        // Left Ear
+        {
+            name: 'left_ear',
+            origin: [0.5, 1.0625, -0.375],
+            size: [6, 1, 4],
+            uv: [0, 25],
+            mirror: true,
+        },
+        // Body
+        {
+            name: 'body',
+            origin: [0, 0.8125, 0.25],
+            size: [16, 14, 26],
+            uv: [0, 30],
+            rotation: [90, 0, 0],
+        },
+        // Mane
+        {
+            name: 'mane',
+            origin: [0, 1.125, -0.125],
+            size: [10, 10, 15],
+            uv: [84, 0],
+            rotation: [90, 0, 0],
+        },
+        // Front Right Leg
+        {
+            name: 'front_right_leg',
+            origin: [-0.375, 0, -0.25],
+            size: [6, 14, 6],
+            uv: [44, 0],
+        },
+        // Front Left Leg
+        {
+            name: 'front_left_leg',
+            origin: [0.375, 0, -0.25],
+            size: [6, 14, 6],
+            uv: [44, 0],
+            mirror: true,
+        },
+        // Back Right Leg
+        {
+            name: 'back_right_leg',
+            origin: [-0.375, 0, 0.625],
+            size: [5, 11, 5],
+            uv: [62, 0],
+        },
+        // Back Left Leg
+        {
+            name: 'back_left_leg',
+            origin: [0.375, 0, 0.625],
+            size: [5, 11, 5],
+            uv: [62, 0],
+            mirror: true,
+        },
+    ],
+};
+
 // Chicken model
 export const CHICKEN_MODEL: EntityModel = {
     name: 'chicken',
@@ -881,8 +959,8 @@ export const ENTITY_MODELS: Record<string, EntityModel> = {
     'Wither Skeleton': HUMANOID_MODEL,
     'Piglin': HUMANOID_MODEL,
     'Piglin Brute': HUMANOID_MODEL,
-    'Hoglin': QUADRUPED_MODEL,
-    'Zoglin': QUADRUPED_MODEL,
+    'Hoglin': HOGLIN_MODEL,
+    'Zombified Piglin': HUMANOID_MODEL,
     'Warden': HUMANOID_MODEL,
     'Slime': CUBE_MODEL,
     'Magma Cube': CUBE_MODEL,

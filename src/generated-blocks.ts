@@ -831,7 +831,7 @@ const ENTITY_DEFS: [string, string, string][] = [
     ['Piglin', 'Hostile', 'piglin/piglin'],
     ['Piglin Brute', 'Hostile', 'piglin/piglin_brute'],
     ['Hoglin', 'Hostile', 'hoglin/hoglin'],
-    ['Zoglin', 'Hostile', 'hoglin/zoglin'],
+    ['Zombified Piglin', 'Hostile', 'piglin/zombified_piglin'],
     ['Warden', 'Hostile', 'warden/warden'],
     ['Slime', 'Hostile', 'slime/slime'],
     ['Magma Cube', 'Hostile', 'slime/magmacube'],
