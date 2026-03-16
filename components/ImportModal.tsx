@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import JSZip from 'jszip';
-import { X, Upload, Check, Globe, Layers, ArrowRight, Link } from 'lucide-react';
+import { X, Upload, Check, Globe, Link } from 'lucide-react';
 import { getNextBlockId, registerCustomBlock, CustomBlockData } from '../blocks';
 import { textureAtlas } from '../TextureAtlas';
 import { Storage } from '../utils/Storage';
