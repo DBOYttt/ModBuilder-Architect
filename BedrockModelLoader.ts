@@ -374,7 +374,7 @@ function calculateWorldTransforms(
             return boneHierarchy.worldTransform;
         }
 
-        const parentHierarchy = boneMap.get(resolvedParentName)!;
+        const _parentHierarchy = boneMap.get(resolvedParentName)!;
         const parentWorld = computeWorldTransform(resolvedParentName, visited);
 
         // Transform child's pivot point from parent space to world space
@@ -467,7 +467,7 @@ function convertCube(
 
     // Convert to our coordinate system
     const blockPosition = bedrockToBlocks(finalPosition);
-    const blockSize = bedrockToBlocks(inflatedSize);
+    const _blockSize = bedrockToBlocks(inflatedSize);
 
     // Get UV coordinates
     const uv = getCubeUV(cube);
