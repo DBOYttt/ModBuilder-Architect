@@ -46,6 +46,14 @@ npm run build
 
 The built files will be in the `dist/` directory.
 
+## Validate Bundle Size Regression Guardrail
+
+```bash
+npm run build:check
+```
+
+This runs the production build and then checks the generated `dist/assets/*.js` files against lightweight bundle-size thresholds so obvious JS bundle regressions fail fast.
+
 ## Importing Custom Textures
 
 ModBuilder Architect supports importing textures from:

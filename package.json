@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "bundle:check": "node scripts/check-bundle-size.mjs",
+    "build:check": "npm run build && npm run bundle:check",
     "preview": "vite preview"
   },
   "dependencies": {
