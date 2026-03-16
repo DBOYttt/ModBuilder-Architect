@@ -132,7 +132,7 @@ const WorldRenderer: React.FC<{
 };
 
 const CameraAnimator: React.FC<{ view: ViewType }> = ({ view }) => {
-    const { camera, controls } = useThree();
+    const { camera } = useThree();
     const targetPos = useRef(new THREE.Vector3(20, 20, 20));
     const startPos = useRef(new THREE.Vector3());
     const startTime = useRef(0);
