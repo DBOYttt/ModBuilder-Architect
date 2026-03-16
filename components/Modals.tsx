@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState } from 'react';
-import { X, HelpCircle, Command, MousePointer, Info, Check } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { X, Command, MousePointer, Info } from 'lucide-react';
 import { BLOCKS } from '../blocks';
 
 interface ModalProps {
