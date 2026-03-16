@@ -5,7 +5,6 @@ import { BLOCKS } from './blocks';
 import type { BlockDef } from './blocks';
 import {
     getEntityModel,
-    getEntityModelAsync,
     loadEntityBedrockModel,
     EntityModel,
     ModelPart
