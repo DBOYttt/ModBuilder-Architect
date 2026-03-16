@@ -232,7 +232,7 @@ export const BlockInteraction: React.FC<BlockInteractionProps> = ({
             }
         };
 
-        const handlePointerUp = (e: PointerEvent) => {
+        const handlePointerUp = (_e: PointerEvent) => {
             if (tool === 'fill' && isDraggingRef.current && dragStartRef.current && highlightPosRef.current) {
                 const start = dragStartRef.current;
                 const end = highlightPosRef.current;
