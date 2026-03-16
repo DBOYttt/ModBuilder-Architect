@@ -1,13 +1,13 @@
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Scene from './components/Scene';
 import {
     Box, Trash2, Pipette, Sun, Moon, Search,
     ChevronDown, ChevronRight, Hand, Grid3X3,
     ArrowDownToLine, Move3d, RectangleVertical, RectangleHorizontal,
-    Move, Layers, Eye, EyeOff, ChevronUp, ScrollText, CheckSquare,
+    Move, Eye, EyeOff, ChevronUp, ScrollText, CheckSquare,
     Save, FolderOpen, FilePlus, Download, Image as ImageIcon, FileSpreadsheet, FileArchive, UploadCloud,
-    RotateCw, Undo, Redo, HelpCircle, PanelLeftClose, PanelLeftOpen, X, List
+    RotateCw, Undo, Redo, HelpCircle, PanelLeftClose, PanelLeftOpen, X
 } from 'lucide-react';
 import { ToolType, ViewType } from './types';
 import { VoxelWorld } from './VoxelWorld';
@@ -55,7 +55,7 @@ const App: React.FC = () => {
   const [hoveredBlock, setHoveredBlock] = useState<{ name: string; x: number; y: number } | null>(null);
 
   const [blocksVersion, setBlocksVersion] = useState(0);
-  const [historyVersion, setHistoryVersion] = useState(0);
+  const [_historyVersion, setHistoryVersion] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -216,7 +216,7 @@ const App: React.FC = () => {
               setHistoryVersion(0);
               const usedIds = Array.from(new Set(voxelWorld.getAllBlocks().map(b => b.id)));
               await textureAtlas.preloadUsedBlocks(usedIds);
-          } catch (err) { alert('Failed to load project.'); }
+          } catch (_err) { alert('Failed to load project.'); }
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
   };
