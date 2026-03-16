@@ -18,5 +18,41 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    chunkSizeWarningLimit: 750,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined;
+          }
+
+          if (id.includes('@react-three/drei')) {
+            return 'r3f-drei';
+          }
+
+          if (id.includes('@react-three/fiber')) {
+            return 'r3f-fiber';
+          }
+
+          if (id.includes('three-stdlib')) {
+            return 'three-stdlib';
+          }
+
+          if (id.includes('/three/examples/')) {
+            return 'three-examples';
+          }
+
+          if (id.includes('/three/')) {
+            return 'three-core';
+          }
+
+          if (id.includes('react')) {
+            return 'react-vendor';
+          }
+
+          return 'vendor';
+        },
+      },
+    },
   }
 });
