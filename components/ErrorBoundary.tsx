@@ -27,6 +27,7 @@ class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
     // Log to console for debugging
+    // eslint-disable-next-line no-console -- intentional: canonical componentDidCatch error log
     console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 

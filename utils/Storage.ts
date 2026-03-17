@@ -49,6 +49,7 @@ export const Storage = {
             try {
                 const blocks: CustomBlockData[] = JSON.parse(legacy);
                 if (Array.isArray(blocks) && blocks.length > 0) {
+                     // eslint-disable-next-line no-console -- intentional migration progress log
                      console.log('Migrating blocks from LocalStorage to IndexedDB...');
                      const transaction = db.transaction([STORE_NAME], 'readwrite');
                      const store = transaction.objectStore(STORE_NAME);
@@ -57,6 +58,7 @@ export const Storage = {
                      localStorage.removeItem('voxel-builder-custom-blocks');
                 }
             } catch (e) {
+                // eslint-disable-next-line no-console -- intentional: only signal for silent migration failure
                 console.warn('Failed to migrate legacy storage', e);
             }
         }
