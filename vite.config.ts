@@ -46,7 +46,12 @@ export default defineConfig({
             return 'three-core';
           }
 
-          if (id.includes('react')) {
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/scheduler/') ||
+            id.includes('/react-jsx-runtime/')
+          ) {
             return 'react-vendor';
           }
 
