@@ -71,7 +71,7 @@ const App: React.FC = () => {
   });
 
   const isDay = theme === 'day';
-  const allBlocks = useMemo(() => Object.values(BLOCKS).filter(b => b.id !== 0), [blocksVersion]);
+  const allBlocks = useMemo(() => Object.values(BLOCKS).filter(b => b.id !== 0), [blocksVersion]); // eslint-disable-line react-hooks/exhaustive-deps -- blocksVersion is the intentional re-trigger for mutable BLOCKS
 
   // Keyboard controls
   useEffect(() => {
@@ -250,7 +250,7 @@ const App: React.FC = () => {
       const entries = Array.from(materialCounts.entries());
       entries.sort((a, b) => b[1] - a[1]);
       return entries.map(([id, count]) => ({ block: BLOCKS[id], count, stacks: (count / 64) })).filter(item => item.block !== undefined);
-  }, [materialCounts, blocksVersion]);
+  }, [materialCounts, blocksVersion]); // eslint-disable-line react-hooks/exhaustive-deps -- blocksVersion is the intentional re-trigger for mutable BLOCKS
 
   // Styles
   const panelClasses = isDay ? "bg-white border-t border-gray-200 text-gray-800" : "bg-slate-900 border-t border-slate-700 text-slate-100";
