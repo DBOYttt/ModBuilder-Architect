@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import Scene from './components/Scene';
 import {
     Box, Trash2, Pipette, Sun, Moon, Search,
@@ -237,7 +237,7 @@ const App: React.FC = () => {
 
   const handleUndo = () => { if (historyManager.undo(voxelWorld)) setHistoryVersion(v => v + 1); };
   const handleRedo = () => { if (historyManager.redo(voxelWorld)) setHistoryVersion(v => v + 1); };
-  const onHistoryChange = () => setHistoryVersion(v => v + 1);
+  const onHistoryChange = useCallback(() => setHistoryVersion(v => v + 1), []);
 
   const getTextureUrl = (textureName: string) => {
       const block = Object.values(BLOCKS).find(b => b.textures.top === textureName || b.textures.side === textureName) as CustomBlockData | undefined;

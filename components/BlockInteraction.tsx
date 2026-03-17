@@ -285,7 +285,7 @@ export const BlockInteraction: React.FC<BlockInteractionProps> = ({
             window.removeEventListener('pointerup', handlePointerUp);
             canvas.removeEventListener('contextmenu', handleContextMenu);
         };
-    }, [gl, camera, voxelWorld, tool, selectedBlockId, setSelectedBlockId, showAllLayers, currentLayer, rotation, historyManager]);
+    }, [gl, camera, voxelWorld, tool, selectedBlockId, setSelectedBlockId, showAllLayers, currentLayer, rotation, historyManager, onHistoryChange, onOpenContextMenu]);
 
     // Update Ghost Mesh
     useFrame(() => {
